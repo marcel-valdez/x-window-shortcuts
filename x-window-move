@@ -90,5 +90,6 @@ elif [ "$1" == "right" ]; then
 elif [ "$1" == "up" ]; then
   $XDOTOOL getactivewindow windowsize $window_width $(screen_height 0.5) windowmove $curr_x 0
 elif [ "$1" == "down" ]; then
-  $XDOTOOL getactivewindow windowsize $window_width $(screen_height 0.5) windowmove $curr_x $(screen_height 0.5)
+  half_screen_height=$(screen_height 0.5)
+  $XDOTOOL getactivewindow windowsize $window_width $half_screen_height windowmove $curr_x $half_screen_height
 fi
