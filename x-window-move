@@ -67,17 +67,20 @@ function get_new_width() {
 
 window_width=$(get_active_window_prop WIDTH)
 setup_screen_dimensions
+curr_x=$(get_active_window_prop X)
+if [ $curr_x -lt 50 ]; then
+  curr_x=0
+fi
+
 if [ "$1" == "left" ]; then
-  curr_x=$(get_active_window_prop X)
-  if [ "$curr_x" -gt "100" ]; then
+  if [ $curr_x -gt 100 ]; then
     new_width=$(screen_width 0.5)
   else
     new_width=$(get_new_width)
   fi
   $XDOTOOL getactivewindow windowmove 0 0 windowsize $new_width $(screen_height)
 elif [ "$1" == "right" ]; then
-  curr_x=$(get_active_window_prop X)
-  if [ "$curr_x" -lt "100" ]; then
+  if [ $curr_x -lt 100 ]; then
     new_width=$(screen_width 0.5)
   else
     new_width=$(get_new_width)
@@ -85,7 +88,7 @@ elif [ "$1" == "right" ]; then
   new_x=$(expr $SCREEN_WIDTH - $new_width)
   $XDOTOOL getactivewindow windowsize $new_width $SCREEN_HEIGHT windowmove $new_x 0
 elif [ "$1" == "up" ]; then
-  $XDOTOOL getactivewindow windowsize $window_width 50% windowmove x 0
+  $XDOTOOL getactivewindow windowsize $window_width $(screen_height 0.5) windowmove $curr_x 0
 elif [ "$1" == "down" ]; then
-  $XDOTOOL getactivewindow windowsize $window_width 50% windowmove x $(screen_height 0.5)
+  $XDOTOOL getactivewindow windowsize $window_width $(screen_height 0.5) windowmove $curr_x $(screen_height 0.5)
 fi
