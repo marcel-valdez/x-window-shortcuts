@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+if [ "$XDOTOOL" == "" ]; then
+  XDOTOOL="/usr/bin/xdotool"
+fi
+
+if [ ! -f "$XDOTOOL" ]; then
+  echo "You must install xdotool for the shortcuts to work"
+  exit 1
+fi
+
+if [ "$XRANDR" == "" ]; then
+  XRANDR="/usr/bin/xrandr"
+fi
+
+if [ ! -f "$XRANDR" ]; then
+  echo "You must install xrandr for the shortcuts to work"
+  exit 1
+fi
+
+function setup_screen_dimensions() {
+  if [ "$SCREEN_DIMENSIONS" == "" ]; then
+    SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+x[0-9]+")
+    SCREEN_WIDTH=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f1)
+    SCREEN_HEIGHT=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f2)
+  fi
+}
+
+function screen_width() {
+  setup_screen_dimensions
+  multiplier=$1
+  if [ "$multiplier" == "" ]; then
+    multiplier=1.0
+  fi
+
+  to_int $(expr "$SCREEN_WIDTH * $multiplier" | bc)
+}
+
+function screen_height() {
+  setup_screen_dimensions
+  multiplier=$1
+  if [ "$multiplier" == "" ]; then
+    multiplier=1.0
+  fi
+
+  to_int $(echo "$SCREEN_HEIGHT * $multiplier" | bc)
+}
+
+function to_int() {
+ printf "%0.0f" "$1"
+}
+
+function get_active_window_prop() {
+  $XDOTOOL getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
+}
+
+function get_new_width() {
+  setup_screen_dimensions
+  if [ "$window_width" -gt $(to_int $(screen_width 0.55)) ]; then
+    screen_width 0.5
+  elif [ $window_width -lt $(to_int $(screen_width 0.45)) ]; then
+    screen_width 0.66
+  else
+    screen_width 0.33
+  fi
+}
+
+window_width=$(get_active_window_prop WIDTH)
+setup_screen_dimensions
+if [ "$1" == "left" ]; then
+  curr_x=$(get_active_window_prop X)
+  if [ "$curr_x" -gt "100" ]; then
+    new_width=$(screen_width 0.5)
+  else
+    new_width=$(get_new_width)
+  fi
+  $XDOTOOL getactivewindow windowmove 0 0 windowsize $new_width $(screen_height)
+elif [ "$1" == "right" ]; then
+  curr_x=$(get_active_window_prop X)
+  if [ "$curr_x" -lt "100" ]; then
+    new_width=$(screen_width 0.5)
+  else
+    new_width=$(get_new_width)
+  fi
+  new_x=$(expr $SCREEN_WIDTH - $new_width)
+  $XDOTOOL getactivewindow windowsize $new_width $SCREEN_HEIGHT windowmove $new_x 0
+elif [ "$1" == "up" ]; then
+  $XDOTOOL getactivewindow windowsize $window_width 50% windowmove x 0
+elif [ "$1" == "down" ]; then
+  $XDOTOOL getactivewindow windowsize $window_width 50% windowmove x $(screen_height 0.5)
+fi
