@@ -92,4 +92,8 @@ elif [ "$1" == "up" ]; then
 elif [ "$1" == "down" ]; then
   half_screen_height=$(screen_height 0.5)
   $XDOTOOL getactivewindow windowsize $window_width $half_screen_height windowmove $curr_x $half_screen_height
+elif [ "$1" == "maximize" ]; then
+  $XDOTOOL getactivewindow windowmove 0 0 windowsize $SCREEN_WIDTH $SCREEN_HEIGHT
+elif [ "$1" == "minimize" ]; then
+  $XDOTOOL getactivewindow windowminimize
 fi
