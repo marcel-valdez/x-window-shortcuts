@@ -18,14 +18,6 @@ if [ ! -f "$XRANDR" ]; then
   exit 1
 fi
 
-function setup_screen_dimensions() {
-  if [ "$SCREEN_DIMENSIONS" == "" ]; then
-    SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+x[0-9]+")
-    SCREEN_WIDTH=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f1)
-    SCREEN_HEIGHT=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f2)
-  fi
-}
-
 function screen_width() {
   setup_screen_dimensions
   multiplier=$1
@@ -62,6 +54,14 @@ function get_new_width() {
     screen_width 0.66
   else
     screen_width 0.33
+  fi
+}
+
+function setup_screen_dimensions() {
+  if [ "$SCREEN_DIMENSIONS" == "" ]; then
+    SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+x[0-9]+")
+    SCREEN_WIDTH=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f1)
+    SCREEN_HEIGHT=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f2)
   fi
 }
 
