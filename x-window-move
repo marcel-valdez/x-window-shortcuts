@@ -77,7 +77,7 @@ function get_window_y_corrected() {
 setup_screen_dimensions
 window_width=$(get_active_window_prop WIDTH)
 absolute_x=$(get_active_window_prop X)
-if [ $absolute_x -gt $SCREEN_WIDTH ]; then
+if [ $absolute_x -ge $SCREEN_WIDTH ]; then
   X_ORIGIN=$SCREEN_WIDTH
   relative_x=$(expr $absolute_x - $X_ORIGIN)
 else
@@ -123,7 +123,7 @@ elif [ "$1" == "right-screen" ]; then
   fi
 elif [ "$1" == "left-screen" ]; then
   # NOTE: Assumes both screens are the same size
-  if [ $absolute_x -gt $SCREEN_WIDTH ]; then
+  if [ $absolute_x -ge $SCREEN_WIDTH ]; then
     get_window_y_corrected
     $XDOTOOL getactivewindow windowmove $(expr $absolute_x - $SCREEN_WIDTH) $curr_y
   fi
