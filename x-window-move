@@ -59,41 +59,52 @@ function get_new_width() {
 
 function setup_screen_dimensions() {
   if [ "$SCREEN_DIMENSIONS" == "" ]; then
-    SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+x[0-9]+")
+    # NOTE: assumes that both screen are of the same size
+    SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+x[0-9]+" | head -1)
     SCREEN_WIDTH=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f1)
     SCREEN_HEIGHT=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f2)
   fi
 }
 
-window_width=$(get_active_window_prop WIDTH)
 setup_screen_dimensions
-curr_x=$(get_active_window_prop X)
-if [ $curr_x -lt 50 ]; then
-  curr_x=0
+window_width=$(get_active_window_prop WIDTH)
+absolute_x=$(get_active_window_prop X)
+if [ $absolute_x -gt $SCREEN_WIDTH ]; then
+  X_ORIGIN=$SCREEN_WIDTH
+  relative_x=$(expr $absolute_x - $X_ORIGIN)
+else
+  X_ORIGIN=0
+  relative_x=$absolute_x
+fi
+
+# NOTE: This fixes the issue when moving a window to the edge does not actually
+# put it in x=0, because of the window manager
+if [ $relative_x -lt 50 ]; then
+  relative_x=0
 fi
 
 if [ "$1" == "left" ]; then
-  if [ $curr_x -gt 100 ]; then
+  if [ $relative_x -gt 50 ]; then
     new_width=$(screen_width 0.5)
   else
     new_width=$(get_new_width)
   fi
-  $XDOTOOL getactivewindow windowmove 0 0 windowsize $new_width $(screen_height)
+  $XDOTOOL getactivewindow windowmove $X_ORIGIN 0 windowsize $new_width $(screen_height)
 elif [ "$1" == "right" ]; then
-  if [ $curr_x -lt 100 ]; then
+  if [ $relative_x -lt 50 ]; then
     new_width=$(screen_width 0.5)
   else
     new_width=$(get_new_width)
   fi
-  new_x=$(expr $SCREEN_WIDTH - $new_width)
+  new_x=$(expr $X_ORIGIN + $SCREEN_WIDTH - $new_width)
   $XDOTOOL getactivewindow windowsize $new_width $SCREEN_HEIGHT windowmove $new_x 0
 elif [ "$1" == "up" ]; then
-  $XDOTOOL getactivewindow windowsize $window_width $(screen_height 0.5) windowmove $curr_x 0
+  $XDOTOOL getactivewindow windowsize $window_width $(screen_height 0.5) windowmove $(expr $X_ORIGIN + $relative_x) 0
 elif [ "$1" == "down" ]; then
   half_screen_height=$(screen_height 0.5)
-  $XDOTOOL getactivewindow windowsize $window_width $half_screen_height windowmove $curr_x $half_screen_height
+  $XDOTOOL getactivewindow windowsize $window_width $half_screen_height windowmove $(expr $X_ORIGIN + $relative_x) $half_screen_height
 elif [ "$1" == "maximize" ]; then
-  $XDOTOOL getactivewindow windowmove 0 0 windowsize $SCREEN_WIDTH $SCREEN_HEIGHT
+  $XDOTOOL getactivewindow windowmove $X_ORIGIN 0 windowsize $SCREEN_WIDTH $SCREEN_HEIGHT
 elif [ "$1" == "minimize" ]; then
   $XDOTOOL getactivewindow windowminimize
 fi
