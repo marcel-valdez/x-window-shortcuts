@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+
 if [ "$XDOTOOL" == "" ]; then
   XDOTOOL="/usr/bin/xdotool"
 fi
@@ -66,6 +67,13 @@ function setup_screen_dimensions() {
   fi
 }
 
+function get_window_y_corrected() {
+  curr_y=$(get_active_window_prop Y)
+  if [ $curr_y -lt 100 ]; then
+    curr_y=0
+  fi
+}
+
 setup_screen_dimensions
 window_width=$(get_active_window_prop WIDTH)
 absolute_x=$(get_active_window_prop X)
@@ -107,4 +115,16 @@ elif [ "$1" == "maximize" ]; then
   $XDOTOOL getactivewindow windowmove $X_ORIGIN 0 windowsize $SCREEN_WIDTH $SCREEN_HEIGHT
 elif [ "$1" == "minimize" ]; then
   $XDOTOOL getactivewindow windowminimize
+elif [ "$1" == "right-screen" ]; then
+  # NOTE: Assumes both screens are the same size
+  if [ $absolute_x -lt $SCREEN_WIDTH ]; then
+    get_window_y_corrected
+    $XDOTOOL getactivewindow windowmove $(expr $absolute_x + $SCREEN_WIDTH) $curr_y
+  fi
+elif [ "$1" == "left-screen" ]; then
+  # NOTE: Assumes both screens are the same size
+  if [ $absolute_x -gt $SCREEN_WIDTH ]; then
+    get_window_y_corrected
+    $XDOTOOL getactivewindow windowmove $(expr $absolute_x - $SCREEN_WIDTH) $curr_y
+  fi
 fi
