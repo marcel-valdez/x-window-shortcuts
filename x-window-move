@@ -74,8 +74,8 @@ function setup_screen_dimensions() {
   if [ "$SCREEN_DIMENSIONS" == "" ]; then
     # NOTE: assumes that both screen are of the same size
     SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+\s*x\s*[0-9]+" | head -1)
-    SCREEN_WIDTH=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f1)
-    SCREEN_HEIGHT=$(echo $SCREEN_DIMENSIONS | cut -d'x' -f2)
+    SCREEN_WIDTH=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f1)
+    SCREEN_HEIGHT=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f2)
   fi
 }
 
@@ -113,12 +113,12 @@ if [ "$1" == "left" ]; then
   $XDOTOOL getactivewindow windowmove ${X_ORIGIN} 0\
            windowsize ${new_width} $(get_screen_height)
 elif [ "$1" == "right" ]; then
-  if [ $relative_x -lt 50 ]; then
+  if [ ${relative_x} -lt 50 ]; then
     new_width=$(get_screen_width 0.5)
   else
     new_width=$(get_new_width)
   fi
-  new_x=$(expr $X_ORIGIN + $SCREEN_WIDTH - $new_width)
+  new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
   $XDOTOOL getactivewindow windowsize ${new_width} ${SCREEN_HEIGHT}\
            windowmove ${new_x} 0
 elif [ "$1" == "up" ]; then
