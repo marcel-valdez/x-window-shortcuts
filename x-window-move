@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Set DEBUG to 1 to anything in order to show notification messages
+DEBUG=""
+
+function log_debug() {
+  if [[ "${DEBUG}" != "" ]]; then
+    title="x-window-move"
+    message="$1"
+    notify "${title}" "${message}"
+  fi
+}
 
 if [ "$XDOTOOL" == "" ]; then
   XDOTOOL="/usr/bin/xdotool"
@@ -22,21 +32,21 @@ fi
 function get_screen_width() {
   setup_screen_dimensions
   multiplier=$1
-  if [ "$multiplier" == "" ]; then
+  if [ "${multiplier}" == "" ]; then
     multiplier=1.0
   fi
 
-  to_int $(expr "$SCREEN_WIDTH * $multiplier" | bc)
+  to_int $(expr "${SCREEN_WIDTH} * ${multiplier}" | bc)
 }
 
 function get_screen_height() {
   setup_screen_dimensions
   multiplier=$1
-  if [ "$multiplier" == "" ]; then
+  if [ "${multiplier}" == "" ]; then
     multiplier=1.0
   fi
 
-  to_int $(echo "$SCREEN_HEIGHT * $multiplier" | bc)
+  to_int $(echo "${SCREEN_HEIGHT} * ${multiplier}" | bc)
 }
 
 function to_int() {
@@ -44,7 +54,7 @@ function to_int() {
 }
 
 function get_active_window_prop() {
-  $XDOTOOL getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
+  ${XDOTOOL} getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
 }
 
 function get_new_width() {
@@ -70,12 +80,24 @@ function get_new_height() {
 }
 
 
+function get_selected_screen_dimensions() {
+  selection_char="$1"
+  ${XRANDR} --current | grep "${selection_char}" | grep -Eo "[0-9]+\s*x\s*[0-9]+" | head -1
+}
+
 function setup_screen_dimensions() {
-  if [ "$SCREEN_DIMENSIONS" == "" ]; then
+  if [ "${SCREEN_DIMENSIONS}" == "" ]; then
     # NOTE: assumes that both screen are of the same size
-    SCREEN_DIMENSIONS=$($XRANDR --current | grep '*' | grep -Eo "[0-9]+\s*x\s*[0-9]+" | head -1)
+    SCREEN_DIMENSIONS=$(get_selected_screen_dimensions '*')
+    # RATIONALE: If the current size is not shown as selected by an '*', then
+    # use the size that is selected by a '+'.
+    if [[ "${SCREEN_DIMENSIONS}" == "" ]]; then
+      SCREEN_DIMENSIONS=$(get_selected_screen_dimensions '+')
+    fi
+    log_debug "setup_screen_dimensions: ${SCREEN_DIMENSIONS}"
     SCREEN_WIDTH=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f1)
     SCREEN_HEIGHT=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f2)
+    log_debug "setup_screen_dimensions: screen width: ${SCREEN_WIDTH}, screen height: ${SCREEN_HEIGHT}"
   fi
 }
 
@@ -87,30 +109,30 @@ function get_window_y_corrected() {
 }
 
 setup_screen_dimensions
-window_width=$(get_active_window_prop WIDTH)
-window_height=$(get_active_window_prop HEIGHT)
+window_width=$(get_active_window_prop "WIDTH")
+window_height=$(get_active_window_prop "HEIGHT")
 absolute_x=$(get_active_window_prop X)
-if [ $absolute_x -ge $SCREEN_WIDTH ]; then
-  X_ORIGIN=$SCREEN_WIDTH
-  relative_x=$(expr $absolute_x - $X_ORIGIN)
+if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
+  X_ORIGIN=${SCREEN_WIDTH}
+  relative_x=$(expr ${absolute_x} - ${X_ORIGIN})
 else
   X_ORIGIN=0
-  relative_x=$absolute_x
+  relative_x=${absolute_x}
 fi
 
 # NOTE: This fixes the issue when moving a window to the edge does not actually
 # put it in x=0, because of the window manager
-if [ $relative_x -lt 50 ]; then
+if [ ${relative_x} -lt 50 ]; then
   relative_x=0
 fi
 
 if [ "$1" == "left" ]; then
-  if [ $relative_x -gt 50 ]; then
+  if [ ${relative_x} -gt 50 ]; then
     new_width=$(get_screen_width 0.5)
   else
     new_width=$(get_new_width)
   fi
-  $XDOTOOL getactivewindow windowmove ${X_ORIGIN} 0\
+  ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
            windowsize ${new_width} $(get_screen_height)
 elif [ "$1" == "right" ]; then
   if [ ${relative_x} -lt 50 ]; then
@@ -119,34 +141,35 @@ elif [ "$1" == "right" ]; then
     new_width=$(get_new_width)
   fi
   new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
-  $XDOTOOL getactivewindow windowsize ${new_width} ${SCREEN_HEIGHT}\
-           windowmove ${new_x} 0
+  log_debug "move right width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
+  ${XDOTOOL} getactivewindow windowsize ${new_width} ${SCREEN_HEIGHT}\
+             windowmove ${new_x} 0
 elif [ "$1" == "up" ]; then
   new_height=$(get_new_height)
-  $XDOTOOL getactivewindow windowsize ${window_width} ${new_height}\
+  ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
            windowmove $(expr ${X_ORIGIN} + ${relative_x}) 0
 elif [ "$1" == "down" ]; then
   new_height=$(get_new_height)
   new_y=$(expr $(get_screen_height) - ${new_height})
-  $XDOTOOL getactivewindow windowsize ${window_width} ${new_height}\
+  ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
            windowmove $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
 elif [ "$1" == "maximize" ]; then
-  $XDOTOOL getactivewindow windowmove ${X_ORIGIN} 0\
+  ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
            windowsize ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
 elif [ "$1" == "minimize" ]; then
-  $XDOTOOL getactivewindow windowminimize
+  ${XDOTOOL} getactivewindow windowminimize
 elif [ "$1" == "right-screen" ]; then
   # NOTE: Assumes both screens are the same size
-  if [ $absolute_x -lt $SCREEN_WIDTH ]; then
+  if [ ${absolute_x} -lt ${SCREEN_WIDTH} ]; then
     get_window_y_corrected
-    $XDOTOOL getactivewindow\
+    ${XDOTOOL} getactivewindow\
              windowmove $(expr ${absolute_x} + ${SCREEN_WIDTH}) ${curr_y}
   fi
 elif [ "$1" == "left-screen" ]; then
   # NOTE: Assumes both screens are the same size
-  if [ $absolute_x -ge $SCREEN_WIDTH ]; then
+  if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
     get_window_y_corrected
-    $XDOTOOL getactivewindow\
+    ${XDOTOOL} getactivewindow\
              windowmove $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
   fi
 fi
