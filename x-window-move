@@ -7,7 +7,11 @@ function log_debug() {
   if [[ "${DEBUG}" != "" ]]; then
     title="x-window-move"
     message="$1"
-    notify "${title}" "${message}"
+    if [[ "${TERMINAL_DEBUG}" ]]; then
+      echo "${message}" >&2
+    else
+      notify "${title}" "${message}"
+    fi
   fi
 }
 
