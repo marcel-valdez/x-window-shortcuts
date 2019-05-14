@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Set DEBUG to 1 to anything in order to show notification messages
-DEBUG=""
+TWO_THIRDS=0.666666666
 
 function log_debug() {
   if [[ "${DEBUG}" != "" ]]; then
@@ -62,9 +62,11 @@ function get_new_width() {
   if [ ${window_width} -gt $(to_int $(get_screen_width 0.55)) ]; then
     get_screen_width 0.5
   elif [ ${window_width} -lt $(to_int $(get_screen_width 0.45)) ]; then
-    get_screen_width 0.66
+    get_screen_width ${TWO_THIRDS}
   else
-    get_screen_width 0.33
+    local two_thirds_width=$(get_screen_width "${TWO_THIRDS}")
+    local precise_width=$(expr "${SCREEN_WIDTH} - ${two_thirds_width}" | bc)
+    to_int "${precise_width}"
   fi
 }
 
@@ -73,9 +75,11 @@ function get_new_height() {
   if [ ${window_height} -gt $(to_int $(get_screen_height 0.55)) ]; then
     get_screen_height 0.5
   elif [ ${window_height} -lt $(to_int $(get_screen_height 0.45)) ]; then
-    get_screen_height 0.66
+    get_screen_height ${TWO_THIRDS}
   else
-    get_screen_height 0.33
+    local two_thirds_height=$(get_screen_height "${TWO_THIRDS}")
+    local precise_height=$(expr "${SCREEN_HEIGHT} - ${two_thirds_height}" | bc)
+    to_int "${precise_height}"
   fi
 }
 
