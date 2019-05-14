@@ -90,8 +90,8 @@ function get_new_width() {
     get_screen_width ${TWO_THIRDS}
   else
     local two_thirds_width=$(get_screen_width "${TWO_THIRDS}")
-    local precise_width=$(expr "${SCREEN_WIDTH} - ${two_thirds_width}" | bc)
-    to_int "${precise_width}"
+    local one_third_width=$(expr "${SCREEN_WIDTH} - ${two_thirds_width}" | bc)
+    to_int "${one_third_width}"
   fi
 }
 
@@ -103,8 +103,8 @@ function get_new_height() {
     get_screen_height ${TWO_THIRDS}
   else
     local two_thirds_height=$(get_screen_height "${TWO_THIRDS}")
-    local precise_height=$(expr "${SCREEN_HEIGHT} - ${two_thirds_height}" | bc)
-    to_int "${precise_height}"
+    local one_third_height=$(expr "${SCREEN_HEIGHT} - ${two_thirds_height}" | bc)
+    to_int "${one_third_height}"
   fi
 }
 
