@@ -134,50 +134,68 @@ if [ ${relative_x} -lt 50 ]; then
   relative_x=0
 fi
 
-if [ "$1" == "left" ]; then
-  if [ ${relative_x} -gt 50 ]; then
-    new_width=$(get_screen_width 0.5)
-  else
-    new_width=$(get_new_width)
-  fi
-  ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
-           windowsize ${new_width} $(get_screen_height)
-elif [ "$1" == "right" ]; then
-  if [ ${relative_x} -lt 50 ]; then
-    new_width=$(get_screen_width 0.5)
-  else
-    new_width=$(get_new_width)
-  fi
-  new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
-  log_debug "move right width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
-  ${XDOTOOL} getactivewindow windowsize ${new_width} ${SCREEN_HEIGHT}\
-             windowmove ${new_x} 0
-elif [ "$1" == "up" ]; then
-  new_height=$(get_new_height)
-  ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
-           windowmove $(expr ${X_ORIGIN} + ${relative_x}) 0
-elif [ "$1" == "down" ]; then
-  new_height=$(get_new_height)
-  new_y=$(expr $(get_screen_height) - ${new_height})
-  ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
-           windowmove $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
-elif [ "$1" == "maximize" ]; then
-  ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
-           windowsize ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
-elif [ "$1" == "minimize" ]; then
-  ${XDOTOOL} getactivewindow windowminimize
-elif [ "$1" == "right-screen" ]; then
-  # NOTE: Assumes both screens are the same size
-  if [ ${absolute_x} -lt ${SCREEN_WIDTH} ]; then
-    get_window_y_corrected
-    ${XDOTOOL} getactivewindow\
-             windowmove $(expr ${absolute_x} + ${SCREEN_WIDTH}) ${curr_y}
-  fi
-elif [ "$1" == "left-screen" ]; then
-  # NOTE: Assumes both screens are the same size
-  if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
-    get_window_y_corrected
-    ${XDOTOOL} getactivewindow\
-             windowmove $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
-  fi
-fi
+case $1 in
+  left)
+    if [ ${relative_x} -gt 50 ]; then
+      new_width=$(get_screen_width 0.5)
+    else
+      new_width=$(get_new_width)
+    fi
+
+    log_debug "move left width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
+    ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
+      windowsize ${new_width} $(get_screen_height)
+    ;;
+
+  right)
+    if [ ${relative_x} -lt 50 ]; then
+      new_width=$(get_screen_width 0.5)
+    else
+      new_width=$(get_new_width)
+    fi
+    new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
+    log_debug "move right width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
+    ${XDOTOOL} getactivewindow windowsize ${new_width} ${SCREEN_HEIGHT}\
+      windowmove ${new_x} 0
+    ;;
+
+  up)
+    new_height=$(get_new_height)
+    ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
+      windowmove $(expr ${X_ORIGIN} + ${relative_x}) 0
+    ;;
+
+  down)
+    new_height=$(get_new_height)
+    new_y=$(expr $(get_screen_height) - ${new_height})
+    ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
+      windowmove $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
+    ;;
+
+  maximize)
+    ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
+      windowsize ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
+    ;;
+
+  minimize)
+    ${XDOTOOL} getactivewindow windowminimize
+    ;;
+
+  right-screen)
+    # NOTE: Assumes both screens are the same size
+    if [ ${absolute_x} -lt ${SCREEN_WIDTH} ]; then
+      get_window_y_corrected
+      ${XDOTOOL} getactivewindow\
+        windowmove $(expr ${absolute_x} + ${SCREEN_WIDTH}) ${curr_y}
+    fi
+    ;;
+
+  left-screen)
+    # NOTE: Assumes both screens are the same size
+    if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
+      get_window_y_corrected
+      ${XDOTOOL} getactivewindow\
+        windowmove $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
+    fi
+    ;;
+esac
