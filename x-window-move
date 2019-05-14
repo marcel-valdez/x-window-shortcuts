@@ -15,12 +15,16 @@ function log_debug() {
   fi
 }
 
+function to_int() {
+  printf "%0.0f" "$1"
+}
+
 if [ "$XDOTOOL" == "" ]; then
   XDOTOOL="/usr/bin/xdotool"
 fi
 
 if [ ! -f "$XDOTOOL" ]; then
-  echo "You must install xdotool for the shortcuts to work"
+  echo "You must install xdotool for the shortcuts to work" >&2
   exit 1
 fi
 
@@ -29,9 +33,34 @@ if [ "$XRANDR" == "" ]; then
 fi
 
 if [ ! -f "$XRANDR" ]; then
-  echo "You must install xrandr for the shortcuts to work"
+  echo "You must install xrandr for the shortcuts to work" >&2
   exit 1
 fi
+
+function get_active_window_prop() {
+  ${XDOTOOL} getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
+}
+
+function get_selected_screen_dimensions() {
+  selection_char="$1"
+  ${XRANDR} --current | grep "${selection_char}" | grep -Eo "[0-9]+\s*x\s*[0-9]+" | head -1
+}
+
+function setup_screen_dimensions() {
+  if [ "${SCREEN_DIMENSIONS}" == "" ]; then
+    # NOTE: assumes that both screen are of the same size
+    SCREEN_DIMENSIONS=$(get_selected_screen_dimensions '*')
+    # RATIONALE: If the current size is not shown as selected by an '*', then
+    # use the size that is selected by a '+'.
+    if [[ "${SCREEN_DIMENSIONS}" == "" ]]; then
+      SCREEN_DIMENSIONS=$(get_selected_screen_dimensions '+')
+    fi
+    log_debug "setup_screen_dimensions: ${SCREEN_DIMENSIONS}"
+    SCREEN_WIDTH=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f1)
+    SCREEN_HEIGHT=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f2)
+    log_debug "setup_screen_dimensions: screen width: ${SCREEN_WIDTH}, screen height: ${SCREEN_HEIGHT}"
+  fi
+}
 
 function get_screen_width() {
   setup_screen_dimensions
@@ -51,14 +80,6 @@ function get_screen_height() {
   fi
 
   to_int $(echo "${SCREEN_HEIGHT} * ${multiplier}" | bc)
-}
-
-function to_int() {
-  printf "%0.0f" "$1"
-}
-
-function get_active_window_prop() {
-  ${XDOTOOL} getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
 }
 
 function get_new_width() {
@@ -84,28 +105,6 @@ function get_new_height() {
     local two_thirds_height=$(get_screen_height "${TWO_THIRDS}")
     local precise_height=$(expr "${SCREEN_HEIGHT} - ${two_thirds_height}" | bc)
     to_int "${precise_height}"
-  fi
-}
-
-
-function get_selected_screen_dimensions() {
-  selection_char="$1"
-  ${XRANDR} --current | grep "${selection_char}" | grep -Eo "[0-9]+\s*x\s*[0-9]+" | head -1
-}
-
-function setup_screen_dimensions() {
-  if [ "${SCREEN_DIMENSIONS}" == "" ]; then
-    # NOTE: assumes that both screen are of the same size
-    SCREEN_DIMENSIONS=$(get_selected_screen_dimensions '*')
-    # RATIONALE: If the current size is not shown as selected by an '*', then
-    # use the size that is selected by a '+'.
-    if [[ "${SCREEN_DIMENSIONS}" == "" ]]; then
-      SCREEN_DIMENSIONS=$(get_selected_screen_dimensions '+')
-    fi
-    log_debug "setup_screen_dimensions: ${SCREEN_DIMENSIONS}"
-    SCREEN_WIDTH=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f1)
-    SCREEN_HEIGHT=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f2)
-    log_debug "setup_screen_dimensions: screen width: ${SCREEN_WIDTH}, screen height: ${SCREEN_HEIGHT}"
   fi
 }
 
