@@ -4,14 +4,16 @@
 TWO_THIRDS=0.666666666
 
 function log_debug() {
-  if [[ "${DEBUG}" != "" ]]; then
-    title="x-window-move"
-    message="$1"
-    if [[ "${TERMINAL_DEBUG}" ]]; then
-      echo "${message}" >&2
-    else
-      notify "${title}" "${message}"
-    fi
+  if [[ -z "${DEBUG}" ]]; then
+    return 0
+  fi
+
+  title="x-window-move"
+  message="$1"
+  if [[ "${TERMINAL_DEBUG}" ]]; then
+    echo "${message}" >&2
+  else
+    notify "${title}" "${message}"
   fi
 }
 
