@@ -4,12 +4,13 @@
 TWO_THIRDS=0.666666666
 
 function log_debug() {
+
   if [[ -z "${DEBUG}" ]]; then
     return 0
   fi
 
-  title="x-window-move"
-  message="$1"
+  local title="x-window-move"
+  local message="$1"
   if [[ "${TERMINAL_DEBUG}" ]]; then
     echo "${message}" >&2
   else
@@ -44,8 +45,11 @@ function get_active_window_prop() {
 }
 
 function get_selected_screen_dimensions() {
-  selection_char="$1"
-  ${XRANDR} --current | grep "${selection_char}" | grep -Eo "[0-9]+\s*x\s*[0-9]+" | head -1
+  local selection_char="$1"
+  ${XRANDR} --current \
+    | grep "${selection_char}" \
+    | grep -Eo "[0-9]+\s*x\s*[0-9]+" \
+    | head -1
 }
 
 function setup_screen_dimensions() {
@@ -60,13 +64,14 @@ function setup_screen_dimensions() {
     log_debug "setup_screen_dimensions: ${SCREEN_DIMENSIONS}"
     SCREEN_WIDTH=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f1)
     SCREEN_HEIGHT=$(echo ${SCREEN_DIMENSIONS} | cut -d'x' -f2)
-    log_debug "setup_screen_dimensions: screen width: ${SCREEN_WIDTH}, screen height: ${SCREEN_HEIGHT}"
+    log_debug "setup_screen_dimensions: screen width: ${SCREEN_WIDTH}, \
+screen height: ${SCREEN_HEIGHT}"
   fi
 }
 
 function get_screen_width() {
   setup_screen_dimensions
-  multiplier=$1
+  local multiplier=$1
   if [ "${multiplier}" == "" ]; then
     multiplier=1.0
   fi
@@ -76,7 +81,7 @@ function get_screen_width() {
 
 function get_screen_height() {
   setup_screen_dimensions
-  multiplier=$1
+  local multiplier=$1
   if [ "${multiplier}" == "" ]; then
     multiplier=1.0
   fi
@@ -117,6 +122,27 @@ function get_window_y_corrected() {
   fi
 }
 
+function move_window() {
+  local x=$1
+  local y=$2
+  ${XDOTOOL} getactivewindow windowmove ${x} ${y}
+}
+
+function resize_window() {
+  local width=$1
+  local height=$2
+  ${XDOTOOL} getactivewindow windowsize ${width} ${height}
+}
+
+function minimize_window() {
+  ${XDOTOOL} getactivewindow windowminimize
+}
+
+function maximize_window() {
+  move_window ${X_ORIGIN} 0
+  resize_window ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
+}
+
 setup_screen_dimensions
 window_width=$(get_active_window_prop "WIDTH")
 window_height=$(get_active_window_prop "HEIGHT")
@@ -143,9 +169,10 @@ case $1 in
       new_width=$(get_new_width)
     fi
 
+    new_x=${X_ORIGIN}
     log_debug "move left width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
-    ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
-      windowsize ${new_width} $(get_screen_height)
+    resize_window ${new_width} $(get_screen_height)
+    move_window ${new_x} 0
     ;;
 
   right)
@@ -156,38 +183,36 @@ case $1 in
     fi
     new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
     log_debug "move right width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
-    ${XDOTOOL} getactivewindow windowsize ${new_width} ${SCREEN_HEIGHT}\
-      windowmove ${new_x} 0
+    resize_window ${new_width} ${SCREEN_HEIGHT}
+    move_window ${new_x} 0
     ;;
 
   up)
     new_height=$(get_new_height)
-    ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
-      windowmove $(expr ${X_ORIGIN} + ${relative_x}) 0
+    resize_window ${window_width} ${new_height}
+    move_window $(expr ${X_ORIGIN} + ${relative_x}) 0
     ;;
 
   down)
     new_height=$(get_new_height)
     new_y=$(expr $(get_screen_height) - ${new_height})
-    ${XDOTOOL} getactivewindow windowsize ${window_width} ${new_height}\
-      windowmove $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
+    resize_window ${window_width} ${new_height}
+    move_window $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
     ;;
 
   maximize)
-    ${XDOTOOL} getactivewindow windowmove ${X_ORIGIN} 0\
-      windowsize ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
+    maximize_window
     ;;
 
   minimize)
-    ${XDOTOOL} getactivewindow windowminimize
+    minimize_window
     ;;
 
   right-screen)
     # NOTE: Assumes both screens are the same size
     if [ ${absolute_x} -lt ${SCREEN_WIDTH} ]; then
       get_window_y_corrected
-      ${XDOTOOL} getactivewindow\
-        windowmove $(expr ${absolute_x} + ${SCREEN_WIDTH}) ${curr_y}
+      move_window $(expr ${absolute_x} + ${SCREEN_WIDTH}) ${curr_y}
     fi
     ;;
 
@@ -195,8 +220,7 @@ case $1 in
     # NOTE: Assumes both screens are the same size
     if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
       get_window_y_corrected
-      ${XDOTOOL} getactivewindow\
-        windowmove $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
+      move_window $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
     fi
     ;;
 esac
