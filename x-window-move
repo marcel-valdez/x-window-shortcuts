@@ -125,16 +125,19 @@ function get_window_y_corrected() {
 function move_window() {
   local x=$1
   local y=$2
+  log_debug "${XDOTOOL} getactivewindow windowmove ${x} ${y}"
   ${XDOTOOL} getactivewindow windowmove ${x} ${y}
 }
 
 function resize_window() {
   local width=$1
   local height=$2
+  log_debug "${XDOTOOL} getactivewindow windowsize ${width} ${height}"
   ${XDOTOOL} getactivewindow windowsize ${width} ${height}
 }
 
 function minimize_window() {
+  log_debug "${XDOTOOL} getactivewindow windowminimize"
   ${XDOTOOL} getactivewindow windowminimize
 }
 
@@ -170,7 +173,7 @@ case $1 in
     fi
 
     new_x=${X_ORIGIN}
-    log_debug "move left width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
+    log_debug "moving window to the left"
     resize_window ${new_width} $(get_screen_height)
     move_window ${new_x} 0
     ;;
@@ -182,13 +185,14 @@ case $1 in
       new_width=$(get_new_width)
     fi
     new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
-    log_debug "move right width: ${new_width} height: ${SCREEN_HEIGHT} x: ${new_x} y: 0"
+    log_debug "moving window to the right"
     resize_window ${new_width} ${SCREEN_HEIGHT}
     move_window ${new_x} 0
     ;;
 
   up)
     new_height=$(get_new_height)
+    log_debug "moving the window up"
     resize_window ${window_width} ${new_height}
     move_window $(expr ${X_ORIGIN} + ${relative_x}) 0
     ;;
@@ -196,15 +200,18 @@ case $1 in
   down)
     new_height=$(get_new_height)
     new_y=$(expr $(get_screen_height) - ${new_height})
+    log_debug "moving the window down"
     resize_window ${window_width} ${new_height}
     move_window $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
     ;;
 
   maximize)
+    log_debug "maximizing the window"
     maximize_window
     ;;
 
   minimize)
+    log_debug "minimizing the window"
     minimize_window
     ;;
 
@@ -222,5 +229,8 @@ case $1 in
       get_window_y_corrected
       move_window $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
     fi
+    ;;
+  *)
+    echo "Unknown command: $1" >&2
     ;;
 esac
