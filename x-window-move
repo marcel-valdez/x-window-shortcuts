@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 # Set DEBUG to 1 to anything in order to show notification messages
-TWO_THIRDS=0.666666666
+LARGEST_SIZE=0.75
+LARGE_SIZE=0.666
+MEDIUM_SIZE=0.5
+SMALL_SIZE=0.334
+SMALLEST_SIZE=0.25
 
 function log_debug() {
 
@@ -89,29 +93,35 @@ function get_screen_height() {
   to_int $(echo "${SCREEN_HEIGHT} * ${multiplier}" | bc)
 }
 
+SIZES=("${LARGEST_SIZE}" "${LARGE_SIZE}" "${MEDIUM_SIZE}" "${SMALL_SIZE}" "${SMALLEST_SIZE}")
+
 function get_new_width() {
   setup_screen_dimensions
-  if [ ${window_width} -gt $(to_int $(get_screen_width 0.55)) ]; then
-    get_screen_width 0.5
-  elif [ ${window_width} -lt $(to_int $(get_screen_width 0.45)) ]; then
-    get_screen_width ${TWO_THIRDS}
+  if [ ${window_width} -gt $(to_int $(get_screen_width ${LARGE_SIZE})) ]; then
+    get_screen_width ${SMALLEST_SIZE}
+  elif [ ${window_width} -lt $(to_int $(get_screen_width ${SMALL_SIZE})) ]; then
+    get_screen_width ${SMALL_SIZE}
+  elif [ ${window_width} -lt $(to_int $(get_screen_width ${MEDIUM_SIZE})) ]; then
+    get_screen_width ${MEDIUM_SIZE}
+  elif [ ${window_width} -lt $(to_int $(get_screen_width ${LARGE_SIZE})) ]; then
+    get_screen_width ${LARGE_SIZE}
   else
-    local two_thirds_width=$(get_screen_width "${TWO_THIRDS}")
-    local one_third_width=$(expr "${SCREEN_WIDTH} - ${two_thirds_width}" | bc)
-    to_int "${one_third_width}"
+    get_screen_width ${LARGEST_SIZE}
   fi
 }
 
 function get_new_height() {
   setup_screen_dimensions
-  if [ ${window_height} -gt $(to_int $(get_screen_height 0.55)) ]; then
-    get_screen_height 0.5
-  elif [ ${window_height} -lt $(to_int $(get_screen_height 0.45)) ]; then
-    get_screen_height ${TWO_THIRDS}
+  if [ ${window_height} -gt $(to_int $(get_screen_height ${LARGE_SIZE})) ]; then
+    get_screen_height ${SMALLEST_SIZE}
+  elif [ ${window_height} -lt $(to_int $(get_screen_height ${SMALL_SIZE})) ]; then
+    get_screen_height ${SMALL_SIZE}
+  elif [ ${window_height} -lt $(to_int $(get_screen_height ${MEDIUM_SIZE})) ]; then
+    get_screen_height ${MEDIUM_SIZE}
+  elif [ ${window_height} -lt $(to_int $(get_screen_height ${LARGE_SIZE})) ]; then
+    get_screen_height ${LARGE_SIZE}
   else
-    local two_thirds_height=$(get_screen_height "${TWO_THIRDS}")
-    local one_third_height=$(expr "${SCREEN_HEIGHT} - ${two_thirds_height}" | bc)
-    to_int "${one_third_height}"
+    get_screen_height ${LARGEST_SIZE}
   fi
 }
 
