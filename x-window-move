@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 
 # Set DEBUG to 1 to anything in order to show notification messages
-LARGEST_SIZE=0.75
-LARGE_SIZE=0.666
-MEDIUM_SIZE=0.5
-SMALL_SIZE=0.334
-SMALLEST_SIZE=0.25
+SIZES=(0.75 0.666 0.5 0.334 0.25)
 
 function log_debug() {
 
@@ -93,36 +89,35 @@ function get_screen_height() {
   to_int $(echo "${SCREEN_HEIGHT} * ${multiplier}" | bc)
 }
 
-SIZES=("${LARGEST_SIZE}" "${LARGE_SIZE}" "${MEDIUM_SIZE}" "${SMALL_SIZE}" "${SMALLEST_SIZE}")
-
 function get_new_width() {
   setup_screen_dimensions
-  if [ ${window_width} -gt $(to_int $(get_screen_width ${LARGE_SIZE})) ]; then
-    get_screen_width ${SMALLEST_SIZE}
-  elif [ ${window_width} -lt $(to_int $(get_screen_width ${SMALL_SIZE})) ]; then
-    get_screen_width ${SMALL_SIZE}
-  elif [ ${window_width} -lt $(to_int $(get_screen_width ${MEDIUM_SIZE})) ]; then
-    get_screen_width ${MEDIUM_SIZE}
-  elif [ ${window_width} -lt $(to_int $(get_screen_width ${LARGE_SIZE})) ]; then
-    get_screen_width ${LARGE_SIZE}
-  else
-    get_screen_width ${LARGEST_SIZE}
-  fi
+
+  local i=0
+  local next_size="${SMALLEST_SIZE}"
+  while [[ ${i} -lt ${#SIZES[@]} ]]; do
+    local size=$(to_int $(get_screen_width "${SIZES[${i}]}"))
+    if [ ${window_width} -le "${size}"  ]; then
+      next_size="${SIZES[$((i-1))]}"
+    fi
+    i=$((i+1))
+  done
+
+  get_screen_width "${next_size}"
 }
 
 function get_new_height() {
   setup_screen_dimensions
-  if [ ${window_height} -gt $(to_int $(get_screen_height ${LARGE_SIZE})) ]; then
-    get_screen_height ${SMALLEST_SIZE}
-  elif [ ${window_height} -lt $(to_int $(get_screen_height ${SMALL_SIZE})) ]; then
-    get_screen_height ${SMALL_SIZE}
-  elif [ ${window_height} -lt $(to_int $(get_screen_height ${MEDIUM_SIZE})) ]; then
-    get_screen_height ${MEDIUM_SIZE}
-  elif [ ${window_height} -lt $(to_int $(get_screen_height ${LARGE_SIZE})) ]; then
-    get_screen_height ${LARGE_SIZE}
-  else
-    get_screen_height ${LARGEST_SIZE}
-  fi
+    local i=0
+  local next_size="${SMALLEST_SIZE}"
+  while [[ ${i} -lt ${#SIZES[@]} ]]; do
+    local size=$(to_int $(get_screen_height "${SIZES[${i}]}"))
+    if [ ${window_height} -le "${size}"  ]; then
+      next_size="${SIZES[$((i-1))]}"
+    fi
+    i=$((i+1))
+  done
+
+  get_screen_height "${next_size}"
 }
 
 function get_window_y_corrected() {
