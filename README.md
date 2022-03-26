@@ -28,3 +28,11 @@ Maximize a window
 ### x-window-move minimize
 
 Minimize a window
+
+## x-window-move right-screen
+
+Moves a window to the display on the right (for multi-monitor setup)
+
+## x-window-move left-screen
+
+Moves a window to the display on the left (for multi-monitor setup)
