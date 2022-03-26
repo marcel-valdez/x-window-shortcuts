@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Set DEBUG to 1 to anything in order to show notification messages
-SIZES=(0.75 0.666 0.5 0.334 0.25)
+SIZES=(0.73 0.666 0.5 0.334 0.27)
+X_SIDE_BORDER=0
 
 function log_debug() {
 
@@ -94,10 +95,16 @@ function get_new_width() {
 
   local i=0
   local next_size="${SMALLEST_SIZE}"
+  local next_idx=
   while [[ ${i} -lt ${#SIZES[@]} ]]; do
     local size=$(to_int $(get_screen_width "${SIZES[${i}]}"))
-    if [ ${window_width} -le "${size}"  ]; then
-      next_size="${SIZES[$((i-1))]}"
+    if [ ${window_width} -le ${size} ]; then
+      if [[ "${reverse}" ]]; then
+        next_idx=$(((i+1)%5))
+      else
+        next_idx=$((i-1))
+      fi
+      next_size="${SIZES[${next_idx}]}"
     fi
     i=$((i+1))
   done
@@ -107,12 +114,18 @@ function get_new_width() {
 
 function get_new_height() {
   setup_screen_dimensions
-    local i=0
+  local i=0
   local next_size="${SMALLEST_SIZE}"
+  local next_idx=
   while [[ ${i} -lt ${#SIZES[@]} ]]; do
     local size=$(to_int $(get_screen_height "${SIZES[${i}]}"))
-    if [ ${window_height} -le "${size}"  ]; then
-      next_size="${SIZES[$((i-1))]}"
+    if [ ${window_height} -le ${size} ]; then
+      if [[ "${reverse}" ]]; then
+        local next_idx=$(((i+1)%5))
+      else
+        local next_idx=$((i+1))
+      fi
+      next_size="${SIZES[${next_idx}]}"
     fi
     i=$((i+1))
   done
@@ -151,92 +164,126 @@ function maximize_window() {
   resize_window ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
 }
 
-setup_screen_dimensions
-window_width=$(get_active_window_prop "WIDTH")
-window_height=$(get_active_window_prop "HEIGHT")
-absolute_x=$(get_active_window_prop X)
-if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
-  X_ORIGIN=${SCREEN_WIDTH}
-  relative_x=$(expr ${absolute_x} - ${X_ORIGIN})
-else
-  X_ORIGIN=0
-  relative_x=${absolute_x}
-fi
+reverse=
+command=
+function parse_args() {
+  while [[ $# -gt 0 ]]; do
+    local arg="$1"
+    case "${arg}" in
+      --reverse)
+        reverse=1
+        ;;
+      *)
+        command="${arg}"
+        ;;
+    esac
+    shift
+  done
+}
 
-# NOTE: This fixes the issue when moving a window to the edge does not actually
-# put it in x=0, because of the window manager
-if [ ${relative_x} -lt 50 ]; then
-  relative_x=0
-fi
 
-case $1 in
-  left)
-    if [ ${relative_x} -gt 50 ]; then
-      new_width=$(get_screen_width 0.5)
-    else
-      new_width=$(get_new_width)
-    fi
+function main() {
+  setup_screen_dimensions
+  window_width=$(get_active_window_prop "WIDTH")
+  window_height=$(get_active_window_prop "HEIGHT")
+  absolute_x=$(get_active_window_prop X)
+  if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
+    X_ORIGIN=${SCREEN_WIDTH}
+    relative_x=$(expr ${absolute_x} - ${X_ORIGIN})
+  else
+    X_ORIGIN=0
+    relative_x=${absolute_x}
+  fi
 
-    new_x=${X_ORIGIN}
-    log_debug "moving window to the left"
-    resize_window ${new_width} $(get_screen_height)
-    move_window ${new_x} 0
-    ;;
+  # NOTE: This fixes the issue when moving a window to the edge does not actually
+  # put it in x=0, because of the window manager
+  if [ ${relative_x} -lt 50 ]; then
+    relative_x=0
+  fi
 
-  right)
-    if [ ${relative_x} -lt 50 ]; then
-      new_width=$(get_screen_width 0.5)
-    else
-      new_width=$(get_new_width)
-    fi
-    new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width})
-    log_debug "moving window to the right"
-    resize_window ${new_width} ${SCREEN_HEIGHT}
-    move_window ${new_x} 0
-    ;;
 
-  up)
-    new_height=$(get_new_height)
-    log_debug "moving the window up"
-    resize_window ${window_width} ${new_height}
-    move_window $(expr ${X_ORIGIN} + ${relative_x}) 0
-    ;;
 
-  down)
-    new_height=$(get_new_height)
-    new_y=$(expr $(get_screen_height) - ${new_height})
-    log_debug "moving the window down"
-    resize_window ${window_width} ${new_height}
-    move_window $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
-    ;;
+  case "${command}" in
+    left)
+      if [ ${relative_x} -gt 50 ]; then
+        new_width=$(get_screen_width 0.5)
+      else
+        new_width=$(get_new_width)
+      fi
 
-  maximize)
-    log_debug "maximizing the window"
-    maximize_window
-    ;;
+      new_x=${X_ORIGIN}
+      log_debug "moving window to the left"
+      resize_window ${new_width} $(get_screen_height)
+      move_window ${new_x} 0
+      ;;
 
-  minimize)
-    log_debug "minimizing the window"
-    minimize_window
-    ;;
+    right)
+      if [ ${relative_x} -lt 50 ]; then
+        new_width=$(get_screen_width 0.5)
+      else
+        new_width=$(get_new_width)
+      fi
+      new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width} - ${X_SIDE_BORDER})
+      log_debug "moving window to the right"
+      resize_window ${new_width} ${SCREEN_HEIGHT}
+      move_window ${new_x} 0
+      ;;
 
-  right-screen)
-    # NOTE: Assumes both screens are the same size
-    if [ ${absolute_x} -lt ${SCREEN_WIDTH} ]; then
-      get_window_y_corrected
-      move_window $(expr ${absolute_x} + ${SCREEN_WIDTH}) ${curr_y}
-    fi
-    ;;
+    up)
+      new_height=$(get_new_height)
+      log_debug "moving the window up"
+      resize_window ${window_width} ${new_height}
+      move_window $(expr ${X_ORIGIN} + ${relative_x}) 0
+      ;;
 
-  left-screen)
-    # NOTE: Assumes both screens are the same size
-    if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
-      get_window_y_corrected
-      move_window $(expr ${absolute_x} - ${SCREEN_WIDTH}) ${curr_y}
-    fi
-    ;;
-  *)
-    echo "Unknown command: $1" >&2
-    exit 1
-    ;;
-esac
+    down)
+      new_height=$(get_new_height)
+      new_y=$(expr $(get_screen_height) - ${new_height})
+      log_debug "moving the window down"
+      resize_window ${window_width} ${new_height}
+      move_window $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
+      ;;
+
+    maximize)
+      log_debug "maximizing the window"
+      maximize_window
+      ;;
+
+    minimize)
+      log_debug "minimizing the window"
+      minimize_window
+      ;;
+
+    right-screen)
+      # NOTE: Assumes both screens are the same size
+      if [ ${absolute_x} -lt ${SCREEN_WIDTH} ]; then
+        get_window_y_corrected
+        new_x=$(expr ${absolute_x} + ${SCREEN_WIDTH})
+        if [[ ${relative_x} -gt $((SCREEN_WDITH * 27 / 100)) ]]; then
+          new_x=$((new_x - X_SIDE_BORDER))
+        fi
+        move_window ${new_x} ${curr_y}
+      fi
+      ;;
+
+    left-screen)
+      # NOTE: Assumes both screens are the same size
+      if [ ${absolute_x} -ge $((SCREEN_WIDTH - X_SIDE_BORDER)) ]; then
+        get_window_y_corrected
+        new_x=$(expr ${absolute_x} - ${SCREEN_WIDTH})
+        if [[ ${absolute_x} -gt $((SCREEN_WIDTH * 127 / 100)) ]]; then
+          new_x=$((new_x - X_SIDE_BORDER))
+        fi
+        move_window ${new_x}  ${curr_y}
+      fi
+      ;;
+    *)
+      echo "Unknown command: ${command}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+
+parse_args "$@"
+main
