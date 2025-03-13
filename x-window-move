@@ -11,7 +11,7 @@ function log_debug() {
   fi
 
   local title="x-window-move"
-  local message="$1"
+  local message="$*"
   if [[ "${TERMINAL_DEBUG}" ]]; then
     echo "${message}" >&2
   else
@@ -20,7 +20,8 @@ function log_debug() {
 }
 
 function to_int() {
-  printf "%0.0f" "$1"
+  local value="$1"
+  echo "${value%.*}"
 }
 
 if [ "$XDOTOOL" == "" ]; then
