@@ -76,9 +76,31 @@ function is_active_window_maximized() {
     exit 1
   fi
 
-  local window_states=$(xprop -id "${focused_window_id}" _NET_WM_STATE)
+  local window_states=$(xprop -id "${focused_window_id}" "_NET_WM_STATE")
   echo "${window_states}" | grep -q "_NET_WM_STATE_MAXIMIZED_HORZ" && \
     echo "${window_states}" | grep -q "_NET_WM_STATE_MAXIMIZED_VERT"
+}
+
+function is_active_window_maximized_vertically() {
+  local focused_window_id=$(${XDOTOOL} getactivewindow)
+  if [ -z "${focused_window_id}" ]; then
+    log_error "Failed to get active window id."
+    exit 1
+  fi
+
+  local window_states=$(xprop -id "${focused_window_id}" _NET_WM_STATE)
+    echo "${window_states}" | grep -q "_NET_WM_STATE_MAXIMIZED_VERT"
+}
+
+function is_active_window_maximized_horizontally() {
+  local focused_window_id=$(${XDOTOOL} getactivewindow)
+  if [ -z "${focused_window_id}" ]; then
+    log_error "Failed to get active window id."
+    exit 1
+  fi
+
+  local window_states=$(xprop -id "${focused_window_id}" "_NET_WM_STATE")
+    echo "${window_states}" | grep -q "_NET_WM_STATE_MAXIMIZED_HORZ"
 }
 
 function get_selected_screen_dimensions() {
@@ -312,7 +334,11 @@ function main() {
       ;;
 
     up)
-      new_height=$(get_new_height)
+      if [[ ${window_y} -gt 0 ]]; then
+        new_height=$(to_int $(get_screen_height "0.5"))
+      else
+        new_height=$(get_new_height)
+      fi
       log_debug "moving the window up"
       if is_active_window_maximized; then
         unmaximize_vertically
@@ -322,7 +348,11 @@ function main() {
       ;;
 
     down)
-      new_height=$(get_new_height)
+      if [[ ${window_y} -eq 0 ]] && ! [[ ${window_height} -eq ${SCREEN_HEIGHT} ]]; then
+        new_height=$(to_int $(get_screen_height "0.5"))
+      else
+        new_height=$(get_new_height)
+      fi
       new_y=$(expr $(get_screen_height) - ${new_height})
       log_debug "moving the window down"
       if is_active_window_maximized; then
