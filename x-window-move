@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
 # Set DEBUG to 1 to anything in order to show notification messages
-SIZES=(0.73 0.666 0.5 0.334 0.27)
+SIZES=(1 0.73 0.666 0.5 0.334 0.27)
 X_SIDE_BORDER=0
+
+function log_error() {
+  echo "$@" >&2
+}
 
 function log_debug() {
 
@@ -24,26 +28,57 @@ function to_int() {
   echo "${value%.*}"
 }
 
-if [ "$XDOTOOL" == "" ]; then
+if [ "${XDOTOOL}" == "" ]; then
   XDOTOOL="/usr/bin/xdotool"
 fi
 
-if [ ! -f "$XDOTOOL" ]; then
-  echo "You must install xdotool for the shortcuts to work" >&2
+if [ ! -f "${XDOTOOL}" ]; then
+  log_error "You must install xdotool for the shortcuts to work" >&2
   exit 1
 fi
 
-if [ "$XRANDR" == "" ]; then
+if [ "${XRANDR}" == "" ]; then
   XRANDR="/usr/bin/xrandr"
 fi
 
-if [ ! -f "$XRANDR" ]; then
-  echo "You must install xrandr for the shortcuts to work" >&2
+if [ ! -f "${XRANDR}" ]; then
+  log_error "You must install xrandr for the shortcuts to work" >&2
+  exit 1
+fi
+
+
+if [ "${XPROP}" == "" ]; then
+  XPROP=/usr/bin/xprop
+fi
+
+if [ ! -f "${XPROP}" ]; then
+  log_error "You must install xprop for the shortcuts to work" >&2
+  exit 1
+fi
+
+if [ "${WMCTRL}" == "" ]; then
+  WMCTRL=/usr/bin/wmctrl
+fi
+
+if [ ! -f "${WMCTRL}" == "" ]; then
+  log_error "You must install wmctrl for the shortcuts to work" >&2
   exit 1
 fi
 
 function get_active_window_prop() {
   ${XDOTOOL} getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
+}
+
+function is_active_window_maximized() {
+  local focused_window_id=$(${XDOTOOL} getactivewindow)
+  if [ -z "${focused_window_id}" ]; then
+    log_error "Failed to get active window id."
+    exit 1
+  fi
+
+  local window_states=$(xprop -id "${focused_window_id}" _NET_WM_STATE)
+  echo "${window_states}" | grep -q "_NET_WM_STATE_MAXIMIZED_HORZ" && \
+    echo "${window_states}" | grep -q "_NET_WM_STATE_MAXIMIZED_VERT"
 }
 
 function get_selected_screen_dimensions() {
@@ -149,9 +184,21 @@ function move_window() {
 }
 
 function resize_window() {
+  setup_screen_dimensions
   local width=$1
   local height=$2
   log_debug "${XDOTOOL} getactivewindow windowsize ${width} ${height}"
+  local screen_width=$(get_screen_width)
+  local screen_height=$(get_screen_height)
+
+  if [[ ${width} -eq ${screen_width} ]]; then
+    maximize_horizontally
+  fi
+
+  if [[ ${height} -eq ${screen_height} ]]; then
+    maximize_vertically
+  fi
+
   ${XDOTOOL} getactivewindow windowsize ${width} ${height}
 }
 
@@ -160,19 +207,46 @@ function minimize_window() {
   ${XDOTOOL} getactivewindow windowminimize
 }
 
+function maximize_vertically() {
+  ${WMCTRL} -r :ACTIVE: -b add,maximized_vert
+}
+
+function maximize_horizontally() {
+  ${WMCTRL} -r :ACTIVE: -b add,maximized_horz
+}
+
+function unmaximize_vertically() {
+  ${WMCTRL} -r :ACTIVE: -b remove,maximized_vert
+}
+
+function unmaximize_horizontally() {
+  ${WMCTRL} -r :ACTIVE: -b remove,maximized_horz
+}
+
 function maximize_window() {
-  move_window ${X_ORIGIN} 0
-  resize_window ${SCREEN_WIDTH} ${SCREEN_HEIGHT}
+  if [[ "${toggle}" ]]; then
+    if is_active_window_maximized; then
+      ${WMCTRL} -r :ACTIVE: -b remove,maximized_vert,maximized_horz
+    else
+      ${WMCTRL} -r :ACTIVE: -b add,maximized_vert,maximized_horz
+    fi
+  else
+    ${WMCTRL} -r :ACTIVE: -b add,maximized_vert,maximized_horz
+  fi
 }
 
 reverse=
 command=
+toggle=
 function parse_args() {
   while [[ $# -gt 0 ]]; do
     local arg="$1"
     case "${arg}" in
       --reverse)
         reverse=1
+        ;;
+      --toggle)
+        toggle=1
         ;;
       *)
         command="${arg}"
@@ -187,7 +261,8 @@ function main() {
   setup_screen_dimensions
   window_width=$(get_active_window_prop "WIDTH")
   window_height=$(get_active_window_prop "HEIGHT")
-  absolute_x=$(get_active_window_prop X)
+  absolute_x=$(get_active_window_prop "X")
+  window_y=$(get_active_window_prop "Y")
   if [ ${absolute_x} -ge ${SCREEN_WIDTH} ]; then
     X_ORIGIN=${SCREEN_WIDTH}
     relative_x=$(expr ${absolute_x} - ${X_ORIGIN})
@@ -214,8 +289,11 @@ function main() {
 
       new_x=${X_ORIGIN}
       log_debug "moving window to the left"
-      resize_window ${new_width} $(get_screen_height)
-      move_window ${new_x} 0
+      if is_active_window_maximized; then
+        unmaximize_horizontally
+      fi
+      resize_window ${new_width} ${window_height}
+      move_window ${new_x} ${window_y}
       ;;
 
     right)
@@ -226,13 +304,19 @@ function main() {
       fi
       new_x=$(expr ${X_ORIGIN} + ${SCREEN_WIDTH} - ${new_width} - ${X_SIDE_BORDER})
       log_debug "moving window to the right"
-      resize_window ${new_width} ${SCREEN_HEIGHT}
-      move_window ${new_x} 0
+      if is_active_window_maximized; then
+        unmaximize_horizontally
+      fi
+      resize_window ${new_width} ${window_height}
+      move_window ${new_x} ${window_y}
       ;;
 
     up)
       new_height=$(get_new_height)
       log_debug "moving the window up"
+      if is_active_window_maximized; then
+        unmaximize_vertically
+      fi
       resize_window ${window_width} ${new_height}
       move_window $(expr ${X_ORIGIN} + ${relative_x}) 0
       ;;
@@ -241,6 +325,9 @@ function main() {
       new_height=$(get_new_height)
       new_y=$(expr $(get_screen_height) - ${new_height})
       log_debug "moving the window down"
+      if is_active_window_maximized; then
+        unmaximize_vertically
+      fi
       resize_window ${window_width} ${new_height}
       move_window $(expr ${X_ORIGIN} + ${relative_x}) ${new_y}
       ;;
