@@ -319,7 +319,7 @@ function main() {
       ;;
 
     right)
-      if [ ${relative_x} -lt 50 ]; then
+      if [ ${relative_x} -lt 50 ] && ! [[ ${window_width} -eq ${SCREEN_WIDTH} ]]; then
         new_width=$(get_screen_width 0.5)
       else
         new_width=$(get_new_width)
