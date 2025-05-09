@@ -60,7 +60,7 @@ if [ "${WMCTRL}" == "" ]; then
   WMCTRL=/usr/bin/wmctrl
 fi
 
-if [ ! -f "${WMCTRL}" == "" ]; then
+if [ ! -f "${WMCTRL}" ]; then
   log_error "You must install wmctrl for the shortcuts to work" >&2
   exit 1
 fi
