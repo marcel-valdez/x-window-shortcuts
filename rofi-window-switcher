@@ -1,0 +1,157 @@
+#!/bin/bash
+
+# This script retrieves a list of open windows using wmctrl,
+# formats the information to include app icons and titles for Rofi's dmenu mode,
+# and then activates the selected window.
+
+# --- Prerequisites ---
+# - wmctrl: Install with `sudo apt install wmctrl`
+# - rofi:   Install with `sudo apt install rofi`
+# - An icon theme configured for your system (e.g., Papirus, Adwaita)
+#   Ensure Rofi is set up to display icons in your theme config (e.g., ~/.config/rofi/config.rasi)
+
+# Get window list using wmctrl.
+# -l: lists all windows
+# -x: includes WM_CLASS (e.g., "Navigator.Firefox") for icon mapping
+
+function get_prev_focused_window_id {
+	if [[ -f "/tmp/x-current-active-window.log" ]]; then
+		tail -2 /tmp/x-current-active-window.log | head -1 | sed -E 's/0x0/0x/'
+	fi
+}
+
+WMCTRL_OUTPUT=$(wmctrl -l -x)
+# Initialize an empty string to store the formatted input for Rofi
+ROFI_INPUT=""
+declare -A ICONS
+# Ignored classes
+IGNORED_WM_CLASSES=("xfce4-panel" "conky-semi" "xfdesktop" "xfce4-notifyd")
+
+CURRENT_DESKTOP="$(xdotool get_desktop)"
+# Read the wmctrl output line by line.
+# The format is typically: <window_id> <desktop_id> <WM_CLASS> <hostname> <Title>
+while IFS= read -r line; do
+	# Extract the window ID (first field)
+	window_id=$(echo "$line" | awk '{print $1}')
+
+	# Extract the current desktop
+	wm_desktop=$(echo "${line}" | awk '{print $2}')
+
+	#	if ! [[ "${wm_desktop}" -eq "${CURRENT_DESKTOP}" ]] && ! [[ "${wm_desktop}" -eq -1 ]]; then
+	#		continue
+	#	fi
+
+	# we want windows on all desktops to show up with the default filter.
+	if [[ ${wm_desktop} -eq -1 ]]; then
+		wm_desktop="${CURRENT_DESKTOP}"
+	fi
+
+	# Extract the full WM_CLASS (third field, e.g., "Navigator.Firefox")
+	wm_class_full=$(echo "$line" | awk '{print $3}')
+
+	# class is duplicate, how to make single?
+	wm_class_full=$(echo "${wm_class_full}" | sed -E 's/^(.*)\.\1$/\1/I')
+
+	# class is google chrome extension
+	wm_class_full=$(echo "${wm_class_full}" | sed -E 's/^crx_(.*).Google-chrome/chrome-\1-Default/')
+
+	skip=0
+	for ignored_wm_class in "${IGNORED_WM_CLASSES[@]}"; do
+		if [[ "${wm_class_full}" == "${ignored_wm_class}" ]]; then
+			skip=1
+			break
+		fi
+	done
+
+	if [[ ${skip} -eq 1 ]]; then
+		continue
+	fi
+
+	# Extract the short WM_CLASS name for icon lookup.
+	# Convert to lowercase and take the first part before the dot.
+	# Example: "Navigator.Firefox" -> "firefox"
+	wm_class_short=$(echo "$wm_class_full" | cut -d'.' -f1 | tr '[:upper:]' '[:lower:]')
+
+	# Determine the icon name. Rofi usually looks for icons matching the class name.
+	# This `case` statement handles common cases where the WM_CLASS might not directly
+	# correspond to the icon name in your icon theme.
+	icon_name="${wm_class_short}" # Default: assume icon name is the short WM_CLASS
+	case "${wm_class_short}" in
+	"navigator") icon_name="firefox" ;;                                                               # Firefox browser
+	"google-chrome" | "google-chrome-stable") icon_name="google-chrome" ;;                            # Google Chrome
+	"chromium" | "chromium-browser") icon_name="chromium" ;;                                          # Chromium browser
+	"thunderbird") icon_name="thunderbird" ;;                                                         # Thunderbird mail client
+	"code") icon_name="visual-studio-code" ;;                                                         # VS Code
+	"gnome-terminal" | "konsole" | "xterm" | "alacritty" | "kitty") icon_name="utilities-terminal" ;; # Various terminals
+	"discord") icon_name="discord" ;;                                                                 # Discord client
+	"slack") icon_name="slack" ;;                                                                     # Slack client
+	"libreoffice") icon_name="libreoffice-writer" ;;                                                  # Generic LibreOffice icon
+	"nautilus") icon_name="folder" ;;                                                                 # GNOME Files
+	"vlc") icon_name="vlc" ;;                                                                         # VLC Media Player
+	"gimp") icon_name="gimp" ;;                                                                       # GIMP image editor
+	"inkscape") icon_name="inkscape" ;;                                                               # Inkscape vector graphics editor
+		# Add more mappings here as needed for applications you use frequently.
+		# You can find icon names by Browse your icon theme directories (e.g., /usr/share/icons/hicolor/scalable/apps/)
+		# or using tools like `gtk-icon-browser`.
+	esac
+
+	# try to find icon by desktop name and class
+	if ! [[ "${ICONS[${wm_class_full}]}" ]]; then
+		icon_name=$(find /usr/share/applications "${HOME}/.local/share/applications/" -name "*${wm_class_full}.desktop" -exec grep -oP '(?<=Icon=).*' {} \; | head -1)
+		if [ -z "${icon_name}" ]; then
+			icon_name=$(grep -ir StartupWMClass="${wm_class_full}" /usr/share/applications/*.desktop ${HOME}/.local/share/applications/*.desktop -l | xargs grep -oP '(?<=Icon=).*' | head -1)
+		fi
+	else
+		icon_name="${ICONS[${sm_class_full}]}"
+	fi
+
+	# Extract the window title. This is everything from the 9th field onwards,
+	# ensuring that titles with spaces are handled correctly.
+	window_title=$(echo "$line" | awk '{$1=$2=$3=$4=""; print $0}' | sed 's/^ *//')
+	prev_window_id=$(get_prev_focused_window_id)
+	if [[ ${prev_window_id} -eq ${window_id} ]]; then
+		ROFI_INPUT="$((wm_desktop + 1)) ${window_title}  (${window_id})\0icon\x1f${icon_name}\n${ROFI_INPUT}"
+	else
+		ROFI_INPUT+="$((wm_desktop + 1)) ${window_title}  (${window_id})\0icon\x1f${icon_name}\n"
+	fi
+	# Format the entry for Rofi: "icon_name\x00Display_Text"
+	# We embed the window ID within the display text so we can easily extract it
+	# after the user makes a selection.
+
+done <<<"${WMCTRL_OUTPUT}"
+
+# Remove the trailing newline character from ROFI_INPUT to prevent a blank entry in Rofi
+ROFI_INPUT=${ROFI_INPUT%$'\n'}
+
+# Check if there are any windows to display.
+if [ -z "${ROFI_INPUT}" ]; then
+	echo "No windows found to display in Rofi."
+	exit 0
+fi
+
+# Call Rofi with the generated input.
+# -dmenu:       Enable dmenu mode.
+# -show-icons:  Enable icon display.
+# -i:           Perform case-insensitive matching.
+# -p "Windows": Set the prompt text for Rofi.
+# -format s:    Return the selected string (the full line we fed into Rofi).
+# -no-show-match: Don't show the search match, just the full entry (optional, can be removed)
+# -sort -sorting-method fzf: Enable FZF-like sorting (optional, requires fzf installed for Rofi)
+SELECTED_LINE=$(echo -e "${ROFI_INPUT}" | rofi -show window -dmenu -show-icons -i -p "Switch to Window" -format s -matching regex -filter "^$((CURRENT_DESKTOP + 1)) ")
+
+# Check if a selection was made (i.e., the user didn't cancel or close Rofi).
+if [ -n "${SELECTED_LINE}" ]; then
+	# Extract the window ID from the selected line.
+	# The ID is expected to be in parentheses at the end, e.g., "... (0x12345678)".
+	# Using grep with a PCRE regex to find the hexadecimal ID and then `tr -d` to remove parentheses.
+	window_id=$(echo "${SELECTED_LINE}" | grep -oP '\(0x[0-9a-fA-F]+\)' | tr -d '()')
+
+	# Activate the selected window using wmctrl.
+	if [ -n "${window_id}" ]; then
+		wmctrl -ia "${window_id}"
+	else
+		echo "Error: Could not extract window ID from selected line: '$SELECTED_LINE'" >&2
+	fi
+else
+	echo "Window selection cancelled or Rofi closed." >&2
+fi
