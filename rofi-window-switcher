@@ -10,32 +10,23 @@
 # - An icon theme configured for your system (e.g., Papirus, Adwaita)
 #   Ensure Rofi is set up to display icons in your theme config (e.g., ~/.config/rofi/config.rasi)
 
-# --- Optimizations Applied ---
-# - Replaced several awk, sed, grep, cut, tr calls with Bash built-ins for speed.
-# - Optimized icon lookup by removing slow filesystem searches for .desktop files.
-#   This relies more heavily on KNOWN_ICONS and basic class name fallbacks.
-#   For icons not in KNOWN_ICONS, the behavior might differ if a specific
-#   Icon= entry in a .desktop file was previously used. Expand KNOWN_ICONS for accuracy.
-# - Combined multiple sed calls into one where possible.
-# - Used Bash regex for extracting window ID from Rofi selection.
-
 # set -euo pipefail # Uncomment for stricter error checking and pipeline behavior
 
+readonly ACTIVE_WINDOW_LOG_FILE="/tmp/x-current-active-window.log"
+
 # Retrieves the window ID of the previously focused window.
-# The original sed 's/0x0/0x/' is preserved. This transformation (e.g., 0x0123 -> 0x123)
-# is subtle and its exact necessity for wmctrl depends on specific window ID formats encountered.
 function get_prev_focused_window_id {
-	local log_file="/tmp/x-current-active-window.log"
-	if [[ -f "${log_file}" ]]; then
+	if [[ -f "${ACTIVE_WINDOW_LOG_FILE}" ]]; then
 		# Get the second to last line from the log file.
 		# `tail -n 2 | head -n 1` is a standard and generally efficient way for this.
 		local line
-		tail -n 2 "${log_file}" | head -n 1
+		tail -n 2 "${ACTIVE_WINDOW_LOG_FILE}" | head -n 1
 	fi
 }
 
-# Associative array for caching dynamically determined icon names during this script run.
-declare -A APP_ICONS
+# File generated using window-watcher-daemon.sh which contains an associative array of
+# [<window class name>] = <icon name>
+readonly GEN_APP_ICONS_FILE="/tmp/app_icons.sh"
 
 # Associative array for WM_CLASS values to ignore.
 declare -A IGNORED_WM_CLASSES=(
@@ -73,8 +64,8 @@ declare -A KNOWN_ICONS=(
 	# Add more entries here, e.g., ["Spotify"]="spotify"
 )
 
-if [ -f /tmp/app_icons.sh ]; then
-	source /tmp/app_icons.sh
+if [ -f "${GEN_APP_ICONS_FILE}" ]; then
+	source "${GEN_APP_ICONS_FILE}"
 else
 	declare -A APP_ICONS
 fi
@@ -88,27 +79,27 @@ function get_icon_name {
 	local icon_name
 
 	# 1. Check KNOWN_ICONS (uses keys as defined, typically lowercase for short_class_name)
-	icon_name="${KNOWN_ICONS[$short_class_name]}"
-	if [[ -z "$icon_name" ]]; then
-		icon_name="${KNOWN_ICONS[$full_class_name]}" # Check with full original class name
+	icon_name="${KNOWN_ICONS[${short_class_name}]}"
+	if [[ -z "${icon_name}" ]]; then
+		icon_name="${KNOWN_ICONS[${full_class_name}]}" # Check with full original class name
 	fi
 
-	# 2. If not in KNOWN_ICONS, check our dynamic cache (APP_ICONS)
-	if [[ -z "$icon_name" ]]; then
-		if [[ -n "${APP_ICONS[$full_class_name]}" ]]; then
-			icon_name="${APP_ICONS[$full_class_name]}"
+	# 2. If not in KNOWN_ICONS, check our generated cache (APP_ICONS)
+	if [[ -z "${icon_name}" ]]; then
+		if [[ -n "${APP_ICONS[${full_class_name}]}" ]]; then
+			icon_name="${APP_ICONS[${full_class_name}]}"
 		else
 			# 3. Fallback: Use the short class name directly.
 			# Rofi will attempt to find an icon with this name based on the icon theme.
-			icon_name="$short_class_name"
-			APP_ICONS["$full_class_name"]="$icon_name" # Cache this fallback
+			icon_name="${short_class_name}"
+			APP_ICONS["${full_class_name}"]="${icon_name}" # Cache this fallback
 		fi
 	fi
-	echo "$icon_name"
+	echo "${icon_name}"
 }
 
 # Get window list from wmctrl.
-WMCTRL_OUTPUT=$(wmctrl -l -x)
+readonly WMCTRL_OUTPUT=$(wmctrl -l -x)
 
 # Initialize an empty array for Rofi entries.
 ROFI_ENTRIES=()
@@ -117,13 +108,14 @@ ROFI_ENTRIES=()
 # The original script used `wmctrl -j`, which is non-standard.
 # This provides a fallback to a common method, then to 0.
 CURRENT_DESKTOP_RAW="$(wmctrl -j 2>/dev/null)"
-if [[ -z "$CURRENT_DESKTOP_RAW" || ! "$CURRENT_DESKTOP_RAW" =~ ^[0-9]+$ ]]; then
+if [[ -z "${CURRENT_DESKTOP_RAW}" || ! "${CURRENT_DESKTOP_RAW}" =~ ^[0-9]+$ ]]; then
 	CURRENT_DESKTOP_RAW="$(wmctrl -d | awk '/\*/ {print $1; exit}')"
 fi
-if [[ -z "$CURRENT_DESKTOP_RAW" || ! "$CURRENT_DESKTOP_RAW" =~ ^[0-9]+$ ]]; then
+if [[ -z "${CURRENT_DESKTOP_RAW}" || ! "${CURRENT_DESKTOP_RAW}" =~ ^[0-9]+$ ]]; then
 	CURRENT_DESKTOP_RAW="0"
 fi
-readonly CURRENT_DESKTOP="$CURRENT_DESKTOP_RAW"
+
+readonly CURRENT_DESKTOP="${CURRENT_DESKTOP_RAW}"
 
 # Get the ID of the previously focused window.
 readonly PREV_WINDOW_ID=$(get_prev_focused_window_id)
@@ -134,15 +126,15 @@ while IFS= read -r line; do
 	# Format: <window_id> <desktop_id> <WM_CLASS> <hostname> <Title>
 	# _host_ignored is used to consume the hostname field.
 	# shellcheck disable=SC2162 # We want word splitting for read here.
-	read -r window_id wm_desktop wm_class_full _host_ignored window_title <<<"$line"
+	read -r window_id wm_desktop wm_class_full _host_ignored window_title <<<"${line}"
 
 	# Skip potentially malformed lines from wmctrl.
-	if [[ -z "$window_id" || -z "$wm_class_full" ]]; then
+	if [[ -z "${window_id}" || -z "${wm_class_full}" ]]; then
 		continue
 	fi
 
 	# Preserve original full class name for cache key and IGNORED_WM_CLASSES lookup.
-	original_wm_class_for_check="$wm_class_full"
+	original_wm_class_for_check="${wm_class_full}"
 
 	# Normalize WM_CLASS names using a single sed process for efficiency.
 	# Rule 1 (case-insensitive): "Name.Name" -> "Name" (e.g., "Firefox.Firefox" -> "Firefox")
@@ -152,14 +144,14 @@ while IFS= read -r line; do
 		-e 's/^crx_([^\.]+)\.Google-chrome$/chrome-\1-Default/')
 
 	# Check if this WM_CLASS should be ignored (check original and normalized).
-	if [[ -n "${IGNORED_WM_CLASSES[$original_wm_class_for_check]}" || -n "${IGNORED_WM_CLASSES[$wm_class_full]}" ]]; then
+	if [[ -n "${IGNORED_WM_CLASSES[${original_wm_class_for_check}]}" || -n "${IGNORED_WM_CLASSES[${wm_class_full}]}" ]]; then
 		continue
 	fi
 
 	# Adjust desktop ID for windows shown on all desktops (-1).
 	# These should appear as if they are on the current desktop for filtering purposes.
-	if [[ "$wm_desktop" -eq -1 ]]; then
-		wm_desktop="$CURRENT_DESKTOP"
+	if [[ "${wm_desktop}" -eq -1 ]]; then
+		wm_desktop="${CURRENT_DESKTOP}"
 	fi
 
 	# Extract the short WM_CLASS name (e.g., "Navigator.Firefox" -> "firefox").
@@ -199,18 +191,17 @@ fi
 # -filter: Pre-filter entries to show only those on the current desktop.
 # Note: `printf "%b\n"` is used to interpret backslash escapes like \0 and \x1f.
 _rofi_filter_string="^$((CURRENT_DESKTOP + 1)) "
-SELECTED_LINE=$(printf "%b\n" "${ROFI_ENTRIES[@]}" | rofi -show window -dmenu -show-icons -i -p "Switch to Window" -format s -matching regex -filter "$_rofi_filter_string")
+SELECTED_LINE=$(printf "%b\n" "${ROFI_ENTRIES[@]}" | rofi -show window -dmenu -show-icons -i -p "Switch to Window" -format s -matching regex -filter "${_rofi_filter_string}")
 
 # Check if a selection was made.
-if [[ -n "$SELECTED_LINE" ]]; then
+if [[ -n "${SELECTED_LINE}" ]]; then
 	# Extract the window ID from the selected line using Bash regex.
 	# The ID is expected to be in parentheses, e.g., "... (0x12345678)".
-	if [[ "$SELECTED_LINE" =~ \((0x[0-9a-fA-F]+)\) ]]; then
-		_selected_window_id="${BASH_REMATCH[1]}"
-		wmctrl -ia "$_selected_window_id"
+	if [[ "${SELECTED_LINE}" =~ \((0x[0-9a-fA-F]+)\) ]]; then
+		wmctrl -ia "${BASH_REMATCH[1]}"
 	else
-		echo "Error: Could not extract window ID from selected line: '$SELECTED_LINE'" >&2
-		# exit 1 # Optionally exit with an error code
+		echo "Error: Could not extract window ID from selected line: '${SELECTED_LINE}'" >&2
+		exit 1
 	fi
 else
 	echo "Window selection cancelled or Rofi closed." >&2
