@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Set DEBUG to 1 to anything in order to show notification messages
-SIZES=(1 0.73 0.666 0.5 0.334 0.27)
+SIZES=(1 0.75 0.666 0.5 0.334 0.25)
 X_SIDE_BORDER=0
 
 function log_error() {
