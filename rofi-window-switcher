@@ -27,6 +27,7 @@ function get_prev_focused_window_id {
 # File generated using window-watcher-daemon.sh which contains an associative array of
 # [<window class name>] = <icon name>
 readonly GEN_APP_ICONS_FILE="/tmp/app_icons.sh"
+readonly USER_GEN_APP_ICONS_FILE="${HOME}/.config/x-window-shortcuts/EXTRA_ICONS.sh"
 
 # Associative array for WM_CLASS values to ignore.
 declare -A IGNORED_WM_CLASSES=(
@@ -62,16 +63,32 @@ declare -A KNOWN_ICONS=(
 	["inkscape"]="inkscape"
 	["org.wezfurlong.wezterm"]="org.wezfurlong.wezterm"
 	# Add more entries here, e.g., ["Spotify"]="spotify"
+  ["xfce4-backdrop-settings"]="org.xfce.xfdesktop"
+  ["xfce4-workspaces-settings"]="org.xfce.workspaces"
+  ["xfce4-session-settings"]="org.xfce.session"
+  ["xfce4-wmtweaks-settings"]="org.xfce.xfwm4-tweaks"
+  ["xfce4-settings-manager"]="org.xfce.settings.manager"
+  ["xfce4-display-settings"]="org.xfce.settings.display"
+  ["xfce4-mouse-settings"]="org.xfce.settings.mouse"
+  ["xfce4-keyboard-settings"]="org.xfce.settings.keyboard"
+  ["xfce4-wm-settings"]="org.xfce.xfwm4"
+  ["xfce4-ui-settings"]="org.xfce.settings.appearance"
 )
+
+if [ -f "${USER_GEN_APP_ICONS_FILE}" ]; then
+  source "${USER_GEN_APP_ICONS_FILE}"
+else
+  declare -A USER_ICONS
+fi
 
 if [ -f "${GEN_APP_ICONS_FILE}" ]; then
 	source "${GEN_APP_ICONS_FILE}"
 else
-	declare -A APP_ICONS
+	declare -A GEN_APP_ICONS
 fi
 
 # Optimized function to get icon name.
-# Relies on KNOWN_ICONS and APP_ICONS, falling back to short class name.
+# Relies on KNOWN_ICONS and GEN_APP_ICONS, falling back to short class name.
 # Removed slow filesystem searches for .desktop files to meet performance goals.
 function get_icon_name {
 	local short_class_name="$1" # Expected to be lowercased
@@ -84,15 +101,17 @@ function get_icon_name {
 		icon_name="${KNOWN_ICONS[${full_class_name}]}" # Check with full original class name
 	fi
 
-	# 2. If not in KNOWN_ICONS, check our generated cache (APP_ICONS)
+	# 2. If not in KNOWN_ICONS, check our generated cache (GEN_APP_ICONS)
 	if [[ -z "${icon_name}" ]]; then
-		if [[ -n "${APP_ICONS[${full_class_name}]}" ]]; then
-			icon_name="${APP_ICONS[${full_class_name}]}"
-		else
+		if [[ -n "${GEN_APP_ICONS[${full_class_name}]}" ]]; then
+			icon_name="${GEN_APP_ICONS[${full_class_name}]}"
+		elif [[ -n "${USER_ICONS[${full_class_name}]}" ]]; then
+      icon_name="${USER_ICONS[${full_class_name}]}"
+    else
 			# 3. Fallback: Use the short class name directly.
 			# Rofi will attempt to find an icon with this name based on the icon theme.
 			icon_name="${short_class_name}"
-			APP_ICONS["${full_class_name}"]="${icon_name}" # Cache this fallback
+			KNOWN_ICONS["${full_class_name}"]="${icon_name}" # Cache this fallback
 		fi
 	fi
 	echo "${icon_name}"
