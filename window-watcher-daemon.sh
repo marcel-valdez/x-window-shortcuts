@@ -2,8 +2,10 @@
 log_file=/tmp/x-current-active-window.log
 
 function build_icon_map {
-  echo "declare -A APP_ICONS=(" >/tmp/app_icons.sh
-  find /usr/share/applications "${HOME}/.local/share/applications/" -name "*.desktop" -exec bash -c 'icon_name=$(grep -oP "(?<=Icon=).*" "$1"); if [ -n "$icon_name" ]; then printf "[\"%s\"]=\"%s\"\n" "$(basename $1 | sed -e 's/\.desktop//')" "$icon_name"; fi' _ {} \; >>/tmp/app_icons.sh
+  echo "declare -A GEN_APP_ICONS=(" >/tmp/app_icons.sh
+  find "${HOME}/Desktop" "${HOME}/.gnome/apps" "/usr/share/applications" "${HOME}/.local/share/applications/" \
+    -name "*.desktop" \
+    -exec bash -c 'icon_name=$(grep -oP "(?<=Icon=).*" "$1"); if [ -n "${icon_name}" ]; then printf "[\"%s\"]=\"%s\"\n" "$(basename $1 | sed -e 's/\.desktop//')" "${icon_name}"; fi' _ {} \; >>/tmp/app_icons.sh
   echo ")" >>/tmp/app_icons.sh
 }
 
