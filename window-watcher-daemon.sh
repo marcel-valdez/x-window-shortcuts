@@ -13,9 +13,14 @@ build_icon_map
 
 xprop -spy -root _NET_ACTIVE_WINDOW | \
   while IFS= read -r window_event; do
-    echo ${window_event}
+    echo "window_event: ${window_event}"
     focused_window_id=$(xprop -root _NET_ACTIVE_WINDOW | cut -d' ' -f5 | cut -d',' -f1)
-    
+    focused_window_class=$(xprop -id ${focused_window_id} WM_CLASS | cut -d' ' -f4 | sed 's/"//g')
+    echo "window_class: ${focused_window_class}"
+    if [[ "${focused_window_class}" == "window-switcher" ]]; then
+      # Ignore window-switcher
+      continue
+    fi
     prev_focused_window_id=
     if [[ -f "${log_file}" ]]; then
       prev_focused_window_id=$(tail -1 "${log_file}")
