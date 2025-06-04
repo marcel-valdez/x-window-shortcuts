@@ -1,14 +1,11 @@
 #!/bin/bash
 
-# This script retrieves a list of open windows using wmctrl,
-# formats the information to include app icons and titles for Rofi's dmenu mode,
-# and then activates the selected window.
+# This script retrieves a list of open windows using wmctrl and formats the
+# information to workspac enumber, window title and window id for fzf.
 
 # --- Prerequisites ---
 # - wmctrl: Install with `sudo apt install wmctrl`
-# - rofi:   Install with `sudo apt install rofi`
-# - An icon theme configured for your system (e.g., Papirus, Adwaita)
-#   Ensure Rofi is set up to display icons in your theme config (e.g., ~/.config/rofi/config.rasi)
+# - python3 libraries: Install with `sudo apt install python3-xlib python3-gi python3-gi-cairo gir1.2-gtk-3.0`
 
 # set -euo pipefail # Uncomment for stricter error checking and pipeline behavior
 
@@ -126,7 +123,7 @@ function get_icon_img {
 # Get window list from wmctrl.
 readonly WMCTRL_OUTPUT=$(wmctrl -l -x)
 
-# Initialize an empty array for Rofi entries.
+# Initialize an empty array for window entries.
 WINDOW_ENTRIES=()
 
 # Get current desktop ID.
@@ -186,11 +183,11 @@ while IFS= read -r line; do
 
 	_icon_name=$(get_icon_name "${_wm_class_short}" "${wm_class_full}") # Pass original (potentially normalized) full_class_name
 
-	# Construct the Rofi entry string. Desktop numbers from wmctrl are 0-indexed.
-	# Adding 1 for display and matching Rofi filter, as in the original script.
+	# Construct the entry string. Desktop numbers from wmctrl are 0-indexed.
+	# Adding 1 for display and matching filter, as in the original script.
 	_display_desktop_num=$((wm_desktop + 1))
 	_window_window_entry_text="${_display_desktop_num} ${window_title} (${window_id})"
-	# Rofi expects specific format for icons: "text\0icon\x1ficon_name"
+  # Wezterm can't display icons through fzf
   if [[ "${_icon_name}" ]]; then
     _window_entry="$(wezterm imgcat --height 1 $(locate ${_icon_name} | grep -E "/share/icons/.*(png|jpg|svg)" | head -1))\\\t${_window_window_entry_text}\0"
   else
@@ -207,7 +204,7 @@ done <<<"${WMCTRL_OUTPUT}"
 
 # Check if there are any windows to display.
 if [[ ${#WINDOW_ENTRIES[@]} -eq 0 ]]; then
-	echo "No windows found to display in Rofi." >&2
+	echo "No windows found to display." >&2
 	exit 0
 fi
 
@@ -230,6 +227,6 @@ if [[ -n "${SELECTED_LINE}" ]]; then
 		exit 1
 	fi
 else
-	echo "Window selection cancelled or Rofi closed." >&2
+	echo "Window selection cancelled or Terminal closed." >&2
 	# exit 1 # Optionally exit with a different code on cancel
 fi
