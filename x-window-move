@@ -312,6 +312,22 @@ function main() {
 
 
   case "${command}" in
+    center)
+      center_x=$((SCREEN_WIDTH/2))
+      if [ "${relative_x}" -le 50 ] || [ "${relative_x}" -gt "${center_x}" ]; then
+        # Was not previously in the center, set width to half the screen
+        new_width=$(get_screen_width "${SIZES[${#SIZES[@]}-1]}")
+      else
+        new_width=$(get_new_width)
+      fi
+      new_x=$(((SCREEN_WIDTH/2)-(new_width/2)))
+      log_debug "moving window to the center"
+      if is_active_window_maximized; then
+        unmaximize_horizontally
+      fi
+      resize_window "${new_width}" "${window_height}"
+      move_window "${new_x}" "${window_y}"
+      ;;
     left)
       if [ "${relative_x}" -gt 50 ]; then
         new_width=$(get_screen_width 0.5)
