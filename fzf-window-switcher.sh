@@ -1,5 +1,6 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # This script retrieves a list of open windows using wmctrl and formats the
 # information to workspac enumber, window title and window id for fzf.
 
@@ -209,10 +210,15 @@ if [[ ${#WINDOW_ENTRIES[@]} -eq 0 ]]; then
 fi
 
 # Note: `printf "%b\n"` is used to interpret backslash escapes like \0 and \x1f.
+_preview_cmd=$(cat <<EOF
+${SCRIPT_DIR}/draw_border_around_window.py -w \$(echo {} | grep -oP "0x[0-9a-fA-F]+")
+EOF
+)
 _filter_string="^$((CURRENT_DESKTOP + 1)) "
+
 SELECTED_LINE=$(printf "%b\n" "${WINDOW_ENTRIES[@]}" | \
   fzf --no-sort --prompt "Window: " --query "${_filter_string}"\
-  --preview='${HOME}/modules/x-window-shortcuts/draw_border_around_window.py -w $(echo {} | grep -oP "0x[0-9a-fA-F]+")'\
+  --preview="${_preview_cmd}"\
   --preview-window=up,0%
 )
 
