@@ -267,6 +267,10 @@ function maximize_window() {
   fi
 }
 
+function unmaximize_window() {
+  ${WMCTRL} -r :ACTIVE: -b remove,maximized_vert,maximized_horz
+}
+
 reverse=
 command=
 toggle=
@@ -441,6 +445,20 @@ function main() {
         fi
       fi
       ;;
+
+    both-screens)
+      # NOTE: Assumes both screens are the same size
+      new_x=0
+      new_y=0
+      new_width=$((SCREEN_WIDTH * 2))
+      new_height="${SCREEN_HEIGHT}"
+      if is_active_window_maximized; then
+        unmaximize_window
+      fi
+      resize_window "${new_width}" "${new_height}"
+      move_window "${new_x}" "${new_y}"
+      ;;
+
     *)
       echo "Unknown command: ${command}" >&2
       exit 1
