@@ -138,6 +138,7 @@ if [[ -z "${CURRENT_DESKTOP_RAW}" || ! "${CURRENT_DESKTOP_RAW}" =~ ^[0-9]+$ ]]; 
 	CURRENT_DESKTOP_RAW="0"
 fi
 
+readonly PREFIXED_TITLE_WINDOW_CLASSES=(kitty wezterm chrome emacs)
 readonly CURRENT_DESKTOP="${CURRENT_DESKTOP_RAW}"
 
 # Get the ID of the previously focused window.
@@ -183,6 +184,12 @@ while IFS= read -r line; do
 	_wm_class_short="${_short_class_part,,}" # Convert to lowercase
 
 	_icon_name=$(get_icon_name "${_wm_class_short}" "${wm_class_full}") # Pass original (potentially normalized) full_class_name
+
+  for prefix in "${PREFIXED_TITLE_WINDOW_CLASSES[@]}"; do
+    if [[ "${_wm_class_short}" =~ ${prefix} ]]; then
+      window_title="${prefix}: ${window_title}"
+    fi
+  done
 
 	# Construct the entry string. Desktop numbers from wmctrl are 0-indexed.
 	# Adding 1 for display and matching filter, as in the original script.
