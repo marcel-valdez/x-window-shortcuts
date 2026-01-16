@@ -87,6 +87,8 @@ else
 	declare -A GEN_APP_ICONS
 fi
 
+readonly PREFIXED_TITLE_WINDOW_CLASSES=(kitty wezterm chrome emacs)
+
 # Optimized function to get icon name.
 # Relies on KNOWN_ICONS and GEN_APP_ICONS, falling back to short class name.
 # Removed slow filesystem searches for .desktop files to meet performance goals.
@@ -181,6 +183,11 @@ while IFS= read -r line; do
 	# Construct the Rofi entry string. Desktop numbers from wmctrl are 0-indexed.
 	# Adding 1 for display and matching Rofi filter, as in the original script.
 	_display_desktop_num=$((wm_desktop + 1))
+  for prefix in "${PREFIXED_TITLE_WINDOW_CLASSES[@]}"; do
+    if [[ "${_wm_class_short}" =~ ${prefix} ]]; then
+      window_title="${prefix}: ${window_title}"
+    fi
+  done
 	_rofi_entry_text="${_display_desktop_num} ${window_title} (${window_id})"
 	# Rofi expects specific format for icons: "text\0icon\x1ficon_name"
 	_rofi_entry="${_rofi_entry_text}\\0icon\\x1f${_icon_name}"
