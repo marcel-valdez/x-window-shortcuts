@@ -69,6 +69,12 @@ function get_active_window_prop() {
   ${XDOTOOL} getactivewindow getwindowgeometry --shell | grep -oP "(?<=$1=).*"
 }
 
+function is_active_window_full_screen() {
+  local focused_window_id=
+  focused_window_id="$(${WMCTRL} -r :ACTIVE: -L | cut -d' ' -f1)"
+  ${XPROP} -id "${focused_window_id}" _NET_WM_STATE | grep -q "_NET_WM_STATE_FULLSCREEN"
+}
+
 function is_active_window_maximized() {
   local focused_window_id=
   local window_states=
@@ -247,12 +253,20 @@ function maximize_horizontally() {
   ${WMCTRL} -r :ACTIVE: -b add,maximized_horz
 }
 
+function make_full_screen() {
+  ${WMCTRL} -r :ACTIVE: -b add,fullscreen
+}
+
 function unmaximize_vertically() {
   ${WMCTRL} -r :ACTIVE: -b remove,maximized_vert
 }
 
 function unmaximize_horizontally() {
   ${WMCTRL} -r :ACTIVE: -b remove,maximized_horz
+}
+
+function remove_full_screen() {
+  ${WMCTRL} -r :ACTIVE: -b remove,fullscreen
 }
 
 function maximize_window() {
@@ -326,12 +340,16 @@ function main() {
       fi
       new_x=$(((SCREEN_WIDTH/2)-(new_width/2)))
       log_debug "moving window to the center"
-      if is_active_window_maximized; then
+      if is_active_window_maximized_horizontally; then
         unmaximize_horizontally
+      fi
+      if is_active_window_full_screen; then
+        remove_full_screen
       fi
       resize_window "${new_width}" "${window_height}"
       move_window "${new_x}" "${window_y}"
       ;;
+
     left)
       if [ "${relative_x}" -gt 50 ]; then
         new_width=$(get_screen_width 0.5)
@@ -341,8 +359,11 @@ function main() {
 
       new_x=${X_ORIGIN}
       log_debug "moving window to the left"
-      if is_active_window_maximized; then
+      if is_active_window_maximized_horizontally; then
         unmaximize_horizontally
+      fi
+      if is_active_window_full_screen; then
+        remove_full_screen
       fi
       resize_window "${new_width}" "${window_height}"
       move_window "${new_x}" "${window_y}"
@@ -356,8 +377,11 @@ function main() {
       fi
       new_x=$(expr "${X_ORIGIN}" + "${SCREEN_WIDTH}" - "${new_width}" - "${X_SIDE_BORDER}")
       log_debug "moving window to the right"
-      if is_active_window_maximized; then
+      if is_active_window_maximized_horizontally; then
         unmaximize_horizontally
+      fi
+      if is_active_window_full_screen; then
+        remove_full_screen
       fi
       resize_window "${new_width}" "${window_height}"
       move_window "${new_x}" "${window_y}"
@@ -370,8 +394,11 @@ function main() {
         new_height=$(get_new_height)
       fi
       log_debug "moving the window up"
-      if is_active_window_maximized; then
+      if is_active_window_maximized_vertically; then
         unmaximize_vertically
+      fi
+      if is_active_window_full_screen; then
+        remove_full_screen
       fi
       resize_window "${window_width}" "${new_height}"
       move_window "$(expr "${X_ORIGIN}" + "${relative_x}")" 0
@@ -385,8 +412,11 @@ function main() {
       fi
       new_y=$(expr "$(get_screen_height)" - "${new_height}")
       log_debug "moving the window down"
-      if is_active_window_maximized; then
+      if is_active_window_maximized_vertically; then
         unmaximize_vertically
+      fi
+      if is_active_window_full_screen; then
+        remove_full_screen
       fi
       resize_window "${window_width}" "${new_height}"
       move_window "$(expr "${X_ORIGIN}" + "${relative_x}")" "${new_y}"
@@ -410,16 +440,32 @@ function main() {
         if [[ "${relative_x}" -gt $((SCREEN_WIDTH * 27 / 100)) ]]; then
           new_x=$((new_x - X_SIDE_BORDER))
         fi
-        toggled_maximization=
-        if is_active_window_maximized; then
-          # toggle the maximization state
-          toggle=1
-          maximize_window
-          toggled_maximization=1
+        toggled_vertical_maximization=
+        toggled_horizontal_maximization=
+        toggled_full_screen=
+        if is_active_window_maximized_vertically; then
+          unmaximize_vertically
+          toggled_vertical_maximization=1
         fi
+        if is_active_window_maximized_horizontally; then
+          unmaximize_horizontally
+          toggled_horizontal_maximization=1
+        fi
+        if is_active_window_full_screen; then
+          remove_full_screen
+          toggled_full_screen=1
+        fi
+
         move_window "${new_x}" "${curr_y}"
-        if [[ ${toggled_maximization} ]]; then
-          maximize_window
+
+        if [[ ${toggled_vertical_maximization} ]]; then
+          maximize_vertically
+        fi
+        if [[ ${toggled_horizontal_maximization} ]]; then
+          maximize_horizontally
+        fi
+        if [[ ${toggled_full_screen} ]]; then
+          make_full_screen
         fi
       fi
       ;;
@@ -432,16 +478,32 @@ function main() {
         if [[ "${absolute_x}" -gt $((SCREEN_WIDTH * 127 / 100)) ]]; then
           new_x=$((new_x - X_SIDE_BORDER))
         fi
-        toggled_maximization=
-        if is_active_window_maximized; then
-          # toggle the maximization state
-          toggle=1
-          maximize_window
-          toggled_maximization=1
+        toggled_vertical_maximization=
+        toggled_horizontal_maximization=
+        toggled_full_screen=
+        if is_active_window_maximized_vertically; then
+          unmaximize_vertically
+          toggled_vertical_maximization=1
         fi
+        if is_active_window_maximized_horizontally; then
+          unmaximize_horizontally
+          toggled_horizontal_maximization=1
+        fi
+        if is_active_window_full_screen; then
+          remove_full_screen
+          toggled_full_screen=1
+        fi
+
         move_window "${new_x}"  "${curr_y}"
-        if [[ ${toggled_maximization} ]]; then
-          maximize_window
+
+        if [[ ${toggled_vertical_maximization} ]]; then
+          maximize_vertically
+        fi
+        if [[ ${toggled_horizontal_maximization} ]]; then
+          maximize_horizontally
+        fi
+        if [[ ${toggled_full_screen} ]]; then
+          make_full_screen
         fi
       fi
       ;;
@@ -452,8 +514,14 @@ function main() {
       new_y=0
       new_width=$((SCREEN_WIDTH * 2))
       new_height="${SCREEN_HEIGHT}"
-      if is_active_window_maximized; then
-        unmaximize_window
+      if is_active_window_maximized_horizontally; then
+        unmaximize_window_horizontally
+      fi
+      if is_active_window_maximized_vertically; then
+        unmaximize_window_vertically
+      fi
+      if is_active_window_full_screen; then
+        remove_full_screen
       fi
       resize_window "${new_width}" "${new_height}"
       move_window "${new_x}" "${new_y}"
