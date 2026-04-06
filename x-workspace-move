@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+
+function log_error() {
+  echo "$@" >&2
+}
+
+function log_debug() {
+
+  if [[ -z "${DEBUG}" ]]; then
+    return 0
+  fi
+
+  local title="x-window-move"
+  local message="$*"
+  if [[ "${TERMINAL_DEBUG}" ]]; then
+    echo "${message}" >&2
+  else
+    notify-send "${title}" "${message}"
+  fi
+}
+
+if [ "${XDOTOOL}" == "" ]; then
+  XDOTOOL="/usr/bin/xdotool"
+fi
+
+if [ ! -f "${XDOTOOL}" ]; then
+  log_error "You must install xdotool for the shortcuts to work" >&2
+  exit 1
+fi
+
+if [ "${WMCTRL}" == "" ]; then
+  WMCTRL=/usr/bin/wmctrl
+fi
+
+if [ ! -f "${WMCTRL}" ]; then
+  log_error "You must install wmctrl for the shortcuts to work" >&2
+  exit 1
+fi
+
+function get_active_window_id() {
+  ${XDOTOOL} getactivewindow
+}
+
+
+COMMAND_ARGS=()
+COMMAND=
+function parse_args() {
+  while [[ $# -gt 0 ]]; do
+    local arg="$1"
+    case "${arg}" in
+      *)
+        if [[ -z "${COMMAND}" ]]; then
+          COMMAND="${arg}"
+        else
+          COMMAND_ARGS+=("${arg}")
+        fi
+        ;;
+    esac
+    shift
+  done
+}
+
+function main() {
+  case "${COMMAND}" in
+    jump_to_workspace)
+      jump_to_workspace "${COMMAND_ARGS[@]}"
+      ;;
+    window_to_workspace)
+      window_to_workspace "${COMMAND_ARGS[@]}"
+      ;;
+    *)
+      log_error "Unknown command: ${COMMAND}"
+      return 1
+      ;;
+  esac
+}
+
+function jump_to_workspace() {
+  local dest="$1"
+  local num_workspaces=$(${XDOTOOL} get_num_desktops)
+  case "${dest}" in
+    next)
+      ${XDOTOOL} set_desktop --relative 1
+      ;;
+    prev)
+      ${XDOTOOL} set_desktop --relative $((num_workspaces-1))
+      ;;
+    1|2|3|4|5|6|7|8|9|10)
+      if [[ ${num_workspaces} -lt ${dest} ]]; then
+        log_error "Invalid workspace index: ${dest}, valid values: 1-${num_workspaces}"
+        return 1
+      fi
+      local workspace_idx=$((dest-1))
+      ${XDOTOOL} set_desktop ${workspace_idx}
+      ;;
+    *)
+      log_error "Invalid workspace index: ${dest}, valid values: 1-${num_workspaces}"
+      return 1
+      ;;
+  esac
+}
+
+function window_to_workspace() {
+  local dest="$1"
+  local move_to_desktop="$2"
+  local num_workspaces=
+  num_workspaces=$(${XDOTOOL} get_num_desktops)
+  local curr_workspace=
+  curr_workspace=$(${XDOTOOL} get_desktop)
+  local active_window_id=
+  active_window_id=$(get_active_window_id)
+  case "${dest}" in
+    next)
+      next_workspace=$((curr_workspace+1))
+      if [[ ${next_workspace} -ge ${num_workspaces} ]]; then
+        next_workspace=0
+      fi
+      ${WMCTRL} -r :ACTIVE: -t ${next_workspace}
+      if [[ "${move_to_desktop}" ]]; then
+        jump_to_workspace next
+        ${XDOTOOL} windowactivate ${active_window_id}
+      fi
+      ;;
+    prev)
+      prev_workspace=$((curr_workspace-1))
+      if [[ ${prev_workspace} -lt 0 ]]; then
+        prev_workspace=$((num_workspaces-1))
+      fi
+      ${WMCTRL} -r :ACTIVE: -t ${prev_workspace}
+      if [[ "${move_to_desktop}" ]]; then
+        jump_to_workspace prev
+        ${XDOTOOL} windowactivate ${active_window_id}
+      fi
+      ;;
+    1|2|3|4|5|6|7|8|9|10)
+      if [[ ${num_workspaces} -lt ${dest} ]]; then
+        log_error "Invalid workspace index: ${dest}, valid values: 1-${num_workspaces}"
+        return 1
+      fi
+      local workspace_idx=$((dest-1))
+      ${WMCTRL} -r :ACTIVE: -t ${workspace_idx}
+      if [[ "${move_to_desktop}" ]]; then
+        jump_to_workspace "${dest}"
+        ${XDOTOOL} windowactivate ${active_window_id}
+      fi
+      ;;
+    *)
+      log_error "Invalid workspace index: ${dest}, valid values: 1-${num_workspaces}"
+      return 1
+      ;;
+  esac
+}
+
+parse_args "$@"
+main
