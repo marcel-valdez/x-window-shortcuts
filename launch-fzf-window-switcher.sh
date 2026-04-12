@@ -13,7 +13,7 @@ wait "${kill_border}" "${kill_switcher}"
 
 export WEZTERM_WINDOW_SWITCHER_MODE=1
 # We use termit because it starts up faster than wezterm.
-termit --role="GDK_WINDOW_TYPE_HINT_POPUP_MENU" --class="window-switcher" -e "${SCRIPT_DIR}/fzf-window-switcher.sh" --init="${SCRIPT_DIR}/termit_config.lua"
+termit --role="GDK_WINDOW_TYPE_HINT_POPUP_MENU" --name='window-switcher' --class="window-switcher" -e "${SCRIPT_DIR}/fzf-window-switcher.sh" --init="${SCRIPT_DIR}/termit_config.lua"
 
 # Sleep 10 milliseconds to wait for the last draw border process to start
 sleep 0.01
