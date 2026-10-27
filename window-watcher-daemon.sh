@@ -17,7 +17,10 @@ xprop -spy -root _NET_ACTIVE_WINDOW | \
     focused_window_id=$(xprop -root _NET_ACTIVE_WINDOW | cut -d' ' -f5 | cut -d',' -f1)
     focused_window_class=$(xprop -id ${focused_window_id} WM_CLASS | cut -d' ' -f4 | sed 's/"//g')
     echo "window_class: ${focused_window_class}"
-    if [[ "${focused_window_class}" == "window-switcher" ]]; then
+    if [[ "${focused_window_class}" == "window-switcher" ]] || \
+      [[ "${focused_window_class}" == "found." ]]; then
+      # WM_CLASS not <found.> means the window has no window class, which can be the case for the
+      # window switcher.
       # Ignore window-switcher
       continue
     fi
